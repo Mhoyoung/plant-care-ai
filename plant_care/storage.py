@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
 import sqlite3
+import json
 
 from .constants import CARE_TYPES, OUTCOMES
 from .media import save_photo
@@ -49,6 +50,18 @@ class PlantStore:
                 );
                 CREATE INDEX IF NOT EXISTS care_logs_plant_date
                     ON care_logs(plant_id, occurred_on DESC, id DESC);
+                CREATE TABLE IF NOT EXISTS ai_analyses (
+                    id INTEGER PRIMARY KEY,
+                    plant_id INTEGER NOT NULL REFERENCES plants(id),
+                    model TEXT NOT NULL,
+                    input_json TEXT NOT NULL,
+                    result_json TEXT NOT NULL,
+                    usage_json TEXT NOT NULL,
+                    photo_path TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ai_analyses_plant
+                    ON ai_analyses(plant_id, id DESC);
             """)
 
     @contextmanager
@@ -147,4 +160,33 @@ class PlantStore:
         return row["last_watered"]
 
     def export_plant(self, plant_id: int) -> dict:
-        return {"schema_version": 1, "plant": self.get_plant(plant_id), "care_logs": self.list_logs(plant_id)}
+        return {"schema_version": 1, "plant": self.get_plant(plant_id), "care_logs": self.list_logs(plant_id),
+                "ai_analyses": self.list_analyses(plant_id)}
+
+    def add_analysis(self, plant_id: int, model: str, context: dict, result: dict,
+                     usage: dict, photo: bytes | None = None) -> int:
+        self.get_plant(plant_id)
+        values = [json.dumps(value, ensure_ascii=False) for value in (context, result, usage)]
+        photo_path = save_photo(photo, self.data_root)
+        try:
+            with self._connection() as connection:
+                cursor = connection.execute(
+                    "INSERT INTO ai_analyses(plant_id, model, input_json, result_json, usage_json, photo_path, created_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (plant_id, model, *values, photo_path, datetime.now(timezone.utc).isoformat()),
+                )
+                return cursor.lastrowid
+        except Exception:
+            self._remove_photo(photo_path)
+            raise
+
+    def list_analyses(self, plant_id: int) -> list[dict]:
+        with self._connection() as connection:
+            rows = connection.execute("SELECT * FROM ai_analyses WHERE plant_id = ? ORDER BY id DESC", (plant_id,))
+            analyses = []
+            for row in rows:
+                analysis = dict(row)
+                for name in ("input", "result", "usage"):
+                    analysis[name] = json.loads(analysis.pop(f"{name}_json"))
+                analyses.append(analysis)
+            return analyses

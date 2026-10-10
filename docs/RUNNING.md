@@ -52,7 +52,7 @@ python3 -m venv .venv
 
 ```text
 data/
-  plants.db       식물 정보와 관리 기록
+  plants.db       식물 정보, 관리 기록, AI 분석과 당시 입력
   photos/         검증하고 크기를 줄인 사진
 ```
 
@@ -75,6 +75,8 @@ plant_care/
   storage.py               SQLite 저장과 조회
   media.py                 사진 검증과 저장
   ai_context.py            최근 기록을 AI 입력으로 구성
+  gemini.py                Gemini REST 요청과 응답 검증
+  ai_ui.py                 분석 폼과 결과 화면
 tests/                     저장소와 화면 동작 검증
 requirements.txt           필요한 외부 라이브러리
 docs/ROADMAP.md             단계별 개발 계획
@@ -83,6 +85,7 @@ docs/ROADMAP.md             단계별 개발 계획
 ```
 
 SQLite와 `unittest`는 Python 기본 라이브러리입니다. 별도 DB 서버나 유료 API 키 없이 시작할 수 있습니다.
+Gemini 분석에 필요한 무료 구간·키 설정은 [AI 안내](AI_SETUP.md)를 참고하세요.
 화면 코드와 저장·AI 입력 코드를 분리해두어, 나중에 모바일 화면과 Python API 서버로 확장하기 쉽게 구성했습니다.
 
 ## 테스트
@@ -92,6 +95,7 @@ SQLite와 `unittest`는 Python 기본 라이브러리입니다. 별도 DB 서버
 ```
 
 테스트는 임시 폴더를 사용합니다. 실제 `data/` 폴더에 예시 식물이나 테스트 사진을 추가하지 않습니다.
+API는 모의 응답을 사용합니다. 실제 AI 요청이나 과금 없이 실행됩니다.
 
 ## 수정한 코드를 GitHub에 올리기
 

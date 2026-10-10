@@ -10,6 +10,7 @@ import streamlit as st
 
 from plant_care.constants import CARE_TYPES, OUTCOMES
 from plant_care.storage import PlantStore
+from plant_care.ai_ui import render_analysis
 
 
 APP_ROOT = Path(__file__).resolve().parent
@@ -118,6 +119,8 @@ else:
                 st.write(log["notes"])
             if log["photo_path"]:
                 st.image(str(store.photo_path(log["photo_path"])), width=320)
+
+    render_analysis(store, plant)
 
     st.download_button(
         "이 식물의 기록 내려받기",
