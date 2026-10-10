@@ -1,0 +1,27 @@
+# Python / local development
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.idea/
+.vscode/
+
+# Personal records, uploaded photos, and database files
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# OS files
+.DS_Store
+Thumbs.db
