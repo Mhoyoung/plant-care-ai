@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 import sqlite3
 import json
+from zoneinfo import ZoneInfo
 
 from .constants import CARE_TYPES, OUTCOMES
 from .media import save_photo
@@ -62,7 +63,36 @@ class PlantStore:
                 );
                 CREATE INDEX IF NOT EXISTS ai_analyses_plant
                     ON ai_analyses(plant_id, id DESC);
+                CREATE TABLE IF NOT EXISTS ai_suggestions (
+                    id INTEGER PRIMARY KEY,
+                    analysis_id INTEGER NOT NULL REFERENCES ai_analyses(id),
+                    action_index INTEGER NOT NULL CHECK(action_index >= 0),
+                    suggestion_text TEXT NOT NULL,
+                    UNIQUE(analysis_id, action_index)
+                );
             """)
+            # Additive migration: old logs remain unlinked; original snapshots are unchanged.
+            columns = {row['name'] for row in connection.execute('PRAGMA table_info(care_logs)')}
+            if 'suggestion_id' not in columns:
+                connection.execute('ALTER TABLE care_logs ADD COLUMN suggestion_id INTEGER REFERENCES ai_suggestions(id)')
+            if 'link_type' not in columns:
+                connection.execute("ALTER TABLE care_logs ADD COLUMN link_type TEXT CHECK(link_type IN ('execution', 'outcome'))")
+            connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS suggestion_execution_once "
+                               "ON care_logs(suggestion_id) WHERE link_type = 'execution'")
+            connection.execute('CREATE INDEX IF NOT EXISTS care_logs_suggestion ON care_logs(suggestion_id, occurred_on, id)')
+            for row in connection.execute('SELECT a.id, a.result_json FROM ai_analyses a '
+                                          'WHERE NOT EXISTS (SELECT 1 FROM ai_suggestions s WHERE s.analysis_id = a.id)'):
+                self._insert_suggestions(connection, row['id'], json.loads(row['result_json']))
+
+    @staticmethod
+    def _insert_suggestions(connection, analysis_id, result):
+        actions = result.get('actions', []) if isinstance(result, dict) else []
+        if not isinstance(actions, list):
+            return
+        for index, text in enumerate(actions):
+            if isinstance(text, str) and text.strip():
+                connection.execute('INSERT OR IGNORE INTO ai_suggestions(analysis_id, action_index, suggestion_text) '
+                                   'VALUES (?, ?, ?)', (analysis_id, index, text))
 
     @contextmanager
     def _connection(self):
@@ -114,25 +144,37 @@ class PlantStore:
             raise ValueError("등록된 식물을 찾을 수 없어요.")
         return dict(row)
 
-    def add_log(self, plant_id: int, kind: str, occurred_on: date | str, notes: str = "", outcome: str = "unrecorded", photo: bytes | None = None) -> int:
+    def add_log(self, plant_id: int, kind: str, occurred_on: date | str, notes: str = "", outcome: str = "unrecorded", photo: bytes | None = None,
+                suggestion_id: int | None = None, link_type: str | None = None) -> int:
         self.get_plant(plant_id)
         if kind not in CARE_TYPES:
             raise ValueError("관리 종류를 선택해 주세요.")
         if outcome not in OUTCOMES:
             raise ValueError("관찰 결과를 선택해 주세요.")
-        notes = _text(notes, "메모", 3000)
+        if (suggestion_id is None) != (link_type is None) or (link_type is not None and link_type not in ('execution', 'outcome')):
+            raise ValueError("연결할 AI 제안과 기록 종류를 함께 선택해 주세요.")
+        notes = _text(notes, "실제로 한 관리" if link_type == 'execution' else "메모", 3000,
+                      required=link_type == 'execution')
+        if link_type == 'execution' and outcome != 'unrecorded':
+            raise ValueError("실행 후 상태는 별도의 경과 기록으로 남겨 주세요.")
+        if link_type == 'outcome' and (kind != 'observation' or (outcome == 'unrecorded' and not notes and photo is None)):
+            raise ValueError("관찰한 상태나 메모·사진을 남겨 주세요. 경과는 상태 관찰로 저장합니다.")
         try:
             log_date = date.fromisoformat(str(occurred_on))
         except (TypeError, ValueError) as error:
             raise ValueError("날짜를 올바르게 입력해 주세요.") from error
         if log_date > date.today():
             raise ValueError("오늘까지의 관리 기록만 저장할 수 있어요.")
-        photo_path = save_photo(photo, self.data_root)
+        photo_path = None
         try:
             with self._connection() as connection:
+                if suggestion_id is not None:
+                    self._validate_link(connection, plant_id, suggestion_id, link_type, log_date)
+                photo_path = save_photo(photo, self.data_root)
                 cursor = connection.execute(
-                    "INSERT INTO care_logs(plant_id, kind, occurred_on, notes, outcome, photo_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (plant_id, kind, log_date.isoformat(), notes, outcome, photo_path, datetime.now(timezone.utc).isoformat()),
+                    "INSERT INTO care_logs(plant_id, kind, occurred_on, notes, outcome, photo_path, created_at, suggestion_id, link_type) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (plant_id, kind, log_date.isoformat(), notes, outcome, photo_path, datetime.now(timezone.utc).isoformat(), suggestion_id, link_type),
                 )
                 log_id = cursor.lastrowid
         except Exception:
@@ -141,7 +183,8 @@ class PlantStore:
         return log_id
 
     def list_logs(self, plant_id: int, limit: int | None = None) -> list[dict]:
-        query = "SELECT * FROM care_logs WHERE plant_id = ? ORDER BY occurred_on DESC, id DESC"
+        query = ("SELECT l.*, s.suggestion_text FROM care_logs l LEFT JOIN ai_suggestions s ON s.id = l.suggestion_id "
+                 "WHERE l.plant_id = ? ORDER BY l.occurred_on DESC, l.id DESC")
         parameters = [plant_id]
         if limit is not None:
             if not isinstance(limit, int) or not 1 <= limit <= 100:
@@ -160,8 +203,8 @@ class PlantStore:
         return row["last_watered"]
 
     def export_plant(self, plant_id: int) -> dict:
-        return {"schema_version": 1, "plant": self.get_plant(plant_id), "care_logs": self.list_logs(plant_id),
-                "ai_analyses": self.list_analyses(plant_id)}
+        return {"schema_version": 2, "plant": self.get_plant(plant_id), "care_logs": self.list_logs(plant_id),
+                "ai_analyses": self.list_analyses(plant_id), "ai_suggestions": self.list_suggestions(plant_id)}
 
     def add_analysis(self, plant_id: int, model: str, context: dict, result: dict,
                      usage: dict, photo: bytes | None = None) -> int:
@@ -175,7 +218,9 @@ class PlantStore:
                     "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (plant_id, model, *values, photo_path, datetime.now(timezone.utc).isoformat()),
                 )
-                return cursor.lastrowid
+                analysis_id = cursor.lastrowid
+                self._insert_suggestions(connection, analysis_id, result)
+                return analysis_id
         except Exception:
             self._remove_photo(photo_path)
             raise
@@ -190,3 +235,37 @@ class PlantStore:
                     analysis[name] = json.loads(analysis.pop(f"{name}_json"))
                 analyses.append(analysis)
             return analyses
+
+    def _validate_link(self, connection, plant_id, suggestion_id, link_type, log_date):
+        suggestion = connection.execute('SELECT a.plant_id, a.created_at FROM ai_suggestions s '
+                                        'JOIN ai_analyses a ON a.id = s.analysis_id WHERE s.id = ?', (suggestion_id,)).fetchone()
+        if suggestion is None or suggestion['plant_id'] != plant_id:
+            raise ValueError("이 식물의 AI 제안을 선택해 주세요.")
+        suggested_on = datetime.fromisoformat(suggestion['created_at']).astimezone(ZoneInfo('Asia/Seoul')).date()
+        if log_date < suggested_on:
+            raise ValueError("AI가 제안한 날 이후의 관리만 연결할 수 있어요.")
+        execution = connection.execute("SELECT occurred_on FROM care_logs WHERE suggestion_id = ? AND link_type = 'execution'",
+                                       (suggestion_id,)).fetchone()
+        if link_type == 'execution' and execution:
+            raise ValueError("이미 실행 기록이 연결된 제안이에요. 이후 상태는 경과로 남겨 주세요.")
+        if link_type == 'outcome' and (execution is None or log_date < date.fromisoformat(execution['occurred_on'])):
+            raise ValueError("실행 기록을 먼저 남기고, 실행한 날 이후의 경과를 기록해 주세요.")
+
+    def list_suggestions(self, plant_id: int, limit: int | None = None) -> list[dict]:
+        query = ('SELECT s.*, a.plant_id, a.created_at AS suggested_at FROM ai_suggestions s '
+                 'JOIN ai_analyses a ON a.id = s.analysis_id WHERE a.plant_id = ? '
+                 'ORDER BY s.analysis_id DESC, s.action_index')
+        parameters = [plant_id]
+        if limit is not None:
+            if type(limit) is not int or not 1 <= limit <= 100:
+                raise ValueError("제안 개수는 1~100 사이로 선택해 주세요.")
+            query += ' LIMIT ?'
+            parameters.append(limit)
+        with self._connection() as connection:
+            suggestions = [dict(row) for row in connection.execute(query, parameters)]
+            for suggestion in suggestions:
+                logs = [dict(row) for row in connection.execute(
+                    'SELECT * FROM care_logs WHERE suggestion_id = ? ORDER BY occurred_on, id', (suggestion['id'],))]
+                suggestion['execution'] = next((log for log in logs if log['link_type'] == 'execution'), None)
+                suggestion['observations'] = [log for log in logs if log['link_type'] == 'outcome']
+        return suggestions

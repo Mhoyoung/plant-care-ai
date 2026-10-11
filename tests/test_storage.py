@@ -105,7 +105,7 @@ class StoreTests(unittest.TestCase):
         plant = self.store.add_plant("식물", photo=test_photo_bytes())
         self.store.add_log(plant, "observation", date.today(), notes="관찰")
         exported = self.store.export_plant(plant)
-        self.assertEqual(exported["schema_version"], 1)
+        self.assertEqual(exported["schema_version"], 2)
         self.assertEqual(exported["care_logs"][0]["notes"], "관찰")
         self.assertIsInstance(exported["plant"]["photo_path"], str)
 
