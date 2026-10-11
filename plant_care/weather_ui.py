@@ -22,7 +22,7 @@ def show_weather(snapshot):
 
 def region_settings(store, plant_id):
     region = store.get_weather_region(plant_id)
-    with st.expander('지역 날씨 함께 살펴보기', expanded=region is None):
+    with st.expander('지역 날씨 함께 살펴보기', expanded=True):
         st.caption('식물을 키우는 곳과 가까운 도시를 선택하세요. 정확한 주소나 GPS 위치는 사용하지 않아요.')
         with st.form(f'weather_region_form_{plant_id}'):
             options = [None, *REGIONS]
