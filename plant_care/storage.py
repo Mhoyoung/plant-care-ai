@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from .constants import CARE_TYPES, OUTCOMES
 from .media import save_photo
+from .weather import REGIONS
 
 
 def _text(value: str, label: str, maximum: int, required: bool = False) -> str:
@@ -29,6 +30,10 @@ class PlantStore:
         self.db_path = self.data_root / "plants.db"
         with self._connection() as connection:
             connection.executescript("""
+                CREATE TABLE IF NOT EXISTS plant_weather_regions (
+                    plant_id INTEGER PRIMARY KEY REFERENCES plants(id),
+                    region_id TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS plants (
                     id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL CHECK(length(trim(name)) > 0),
@@ -204,7 +209,25 @@ class PlantStore:
 
     def export_plant(self, plant_id: int) -> dict:
         return {"schema_version": 2, "plant": self.get_plant(plant_id), "care_logs": self.list_logs(plant_id),
-                "ai_analyses": self.list_analyses(plant_id), "ai_suggestions": self.list_suggestions(plant_id)}
+                "ai_analyses": self.list_analyses(plant_id), "ai_suggestions": self.list_suggestions(plant_id),
+                "weather_region": self.get_weather_region(plant_id)}
+
+    def get_weather_region(self, plant_id: int) -> str | None:
+        self.get_plant(plant_id)
+        with self._connection() as connection:
+            row = connection.execute('SELECT region_id FROM plant_weather_regions WHERE plant_id = ?', (plant_id,)).fetchone()
+        return row['region_id'] if row and row['region_id'] in REGIONS else None
+
+    def set_weather_region(self, plant_id: int, region_id: str | None):
+        self.get_plant(plant_id)
+        if region_id is not None and region_id not in REGIONS:
+            raise ValueError('목록에서 날씨 참고 지역을 선택해 주세요.')
+        with self._connection() as connection:
+            if region_id is None:
+                connection.execute('DELETE FROM plant_weather_regions WHERE plant_id = ?', (plant_id,))
+            else:
+                connection.execute('INSERT INTO plant_weather_regions(plant_id, region_id) VALUES (?, ?) '
+                                   'ON CONFLICT(plant_id) DO UPDATE SET region_id = excluded.region_id', (plant_id, region_id))
 
     def add_analysis(self, plant_id: int, model: str, context: dict, result: dict,
                      usage: dict, photo: bytes | None = None) -> int:
