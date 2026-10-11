@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from .gemini import AnalysisError, MODEL, analysis_context, analyze
+from .ui import escape
 
 
 def api_key() -> str:
@@ -20,23 +21,28 @@ def api_key() -> str:
 
 
 def render_analysis(store, plant):
-    st.subheader("AI 분석")
+    st.subheader("지금 모습, 함께 살펴볼까요?")
+    st.caption("사진 한 장과 쌓아둔 기록에서 다음 관리의 실마리를 찾아보세요.")
     key = api_key()
     if not key:
         st.info("Gemini API 키를 설정하면 분석을 사용할 수 있어요. 키는 .streamlit/secrets.toml에 입력하세요.")
-    st.caption("현재 상태와 최근 관리 기록 최대 30건, 선택한 사진 1장을 Google Gemini로 보냅니다. "
-               "무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
-    st.caption("무료 사용은 AI Studio의 Free Tier 프로젝트에서 설정해 주세요. "
-               "앱은 결제 상태를 확인할 수 없으며, 결제를 연결한 프로젝트의 키는 과금될 수 있어요.")
-    st.caption(f"사용 모델: {MODEL} · 버튼을 누를 때만 호출")
+    with st.expander("분석에 사용하는 정보와 무료 구간 안내"):
+        st.caption("현재 상태와 최근 관리 기록 최대 30건, 선택한 사진 1장을 Google Gemini로 보냅니다. "
+                   "무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
+        st.caption("무료 사용은 AI Studio의 Free Tier 프로젝트에서 설정해 주세요. "
+                   "앱은 결제 상태를 확인할 수 없으며, 결제를 연결한 프로젝트의 키는 과금될 수 있어요.")
+        st.caption(f"사용 모델: {MODEL} · 버튼을 누를 때만 호출")
     with st.form(f"analysis_{plant['id']}"):
-        state = st.text_area("지금 상태와 궁금한 점", max_chars=3000,
+        left, right = st.columns([1.2, 1], gap="large")
+        with left:
+            state = st.text_area("지금 상태와 궁금한 점", max_chars=3000, height=145,
                              placeholder="예: 잎이 처져 있어요. 물을 더 줘야 할까요?", key="ai_state")
-        photo = st.file_uploader("분석할 현재 사진 (선택)", type=["jpg", "jpeg", "png", "webp"], key="ai_photo")
-        use_registered = st.checkbox("새 사진이 없으면 등록 사진 함께 보내기", value=False, key="ai_use_registered",
+        with right:
+            photo = st.file_uploader("분석할 현재 사진 (선택)", type=["jpg", "jpeg", "png", "webp"], key="ai_photo")
+            use_registered = st.checkbox("새 사진이 없으면 등록 사진 함께 보내기", value=False, key="ai_use_registered",
                                        disabled=not bool(plant["photo_path"]))
         consent = st.checkbox("위 내용을 확인했고, 선택한 사진과 기록을 Google로 보내 분석합니다.", key="ai_consent")
-        submit = st.form_submit_button("Gemini로 분석", disabled=not bool(key))
+        submit = st.form_submit_button("Gemini로 분석", type="primary", disabled=not bool(key), width="stretch")
     if submit:
         if not consent:
             st.error("사진과 기록 전송 안내를 확인하고 체크해 주세요.")
@@ -63,19 +69,26 @@ def render_analysis(store, plant):
                 st.error("분석할 사진을 읽지 못했어요. 사진 파일을 확인해 주세요.")
 
     analyses = store.list_analyses(plant["id"])
+    st.write("")
+    st.subheader("쌓아둔 AI 관찰")
     st.caption(f"저장된 분석 {len(analyses)}건 · AI 제안은 실제 관리 기록과 구분해서 보관합니다.")
     for index, analysis in enumerate(analyses):
         timestamp = datetime.fromisoformat(analysis["created_at"]).astimezone(ZoneInfo("Asia/Seoul"))
-        with st.expander(f"{timestamp:%Y-%m-%d %H:%M} · {analysis['model']}", expanded=index == 0):
+        with st.expander(f"{timestamp:%Y.%m.%d %H:%M} · {'최근 관찰' if index == 0 else '지난 관찰'}", expanded=index == 0):
             result = analysis["result"]
-            st.write(result["summary"])
-            for field, label in (("observations", "참고한 관찰"), ("checks", "먼저 확인할 것"), ("actions", "관리 제안")):
-                st.write(f"**{label}**")
-                for item in result[field]:
-                    st.write(f"• {item}")
+            st.html(f'<div class="ai-summary">{escape(result["summary"])}</div>')
+            left, right = st.columns(2, gap="large")
+            for column, field, label in ((left, "checks", "먼저 확인할 것"), (right, "actions", "다음 관리 제안")):
+                with column:
+                    st.write(f"**{label}**")
+                    for item in result[field]:
+                        st.write(f"• {item}")
             st.caption(result["uncertainty"])
-            st.write(f"분석 당시 질문: {analysis['input']['current_state']}")
-            if analysis["photo_path"]:
-                st.image(str(store.photo_path(analysis["photo_path"])), width=320)
-            st.caption(f"참고 기록 {len(analysis['input']['recent_care_logs'])}건 · "
-                       f"응답에 포함된 전체 토큰: {analysis['usage'].get('total_tokens', '정보 없음')}")
+            with st.expander("참고한 관찰과 분석 상세"):
+                for item in result["observations"]:
+                    st.write(f"• {item}")
+                st.write(f"분석 당시 질문: {analysis['input']['current_state']}")
+                if analysis["photo_path"]:
+                    st.image(str(store.photo_path(analysis["photo_path"])), width=320)
+                st.caption(f"참고 기록 {len(analysis['input']['recent_care_logs'])}건 · 모델 {analysis['model']} · "
+                           f"응답에 포함된 전체 토큰: {analysis['usage'].get('total_tokens', '정보 없음')}")
