@@ -9,6 +9,7 @@ import streamlit as st
 
 from .gemini import AnalysisError, MODEL, analysis_context, analyze
 from .ui import escape
+from .care_ui import suggestion_card
 
 
 def api_key() -> str:
@@ -27,7 +28,7 @@ def render_analysis(store, plant):
     if not key:
         st.info("Gemini API 키를 설정하면 분석을 사용할 수 있어요. 키는 .streamlit/secrets.toml에 입력하세요.")
     with st.expander("분석에 사용하는 정보와 무료 구간 안내"):
-        st.caption("현재 상태와 최근 관리 기록 최대 30건, 선택한 사진 1장을 Google Gemini로 보냅니다. "
+        st.caption("현재 상태와 최근 관리 기록 최대 30건, 이전 제안 최대 10건과 각 제안의 최근 경과 3건, 선택한 사진 1장을 Google Gemini로 보냅니다. "
                    "무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
         st.caption("무료 사용은 AI Studio의 Free Tier 프로젝트에서 설정해 주세요. "
                    "앱은 결제 상태를 확인할 수 없으며, 결제를 연결한 프로젝트의 키는 과금될 수 있어요.")
@@ -41,7 +42,7 @@ def render_analysis(store, plant):
             photo = st.file_uploader("분석할 현재 사진 (선택)", type=["jpg", "jpeg", "png", "webp"], key="ai_photo")
             use_registered = st.checkbox("새 사진이 없으면 등록 사진 함께 보내기", value=False, key="ai_use_registered",
                                        disabled=not bool(plant["photo_path"]))
-        consent = st.checkbox("위 내용을 확인했고, 선택한 사진과 기록을 Google로 보내 분석합니다.", key="ai_consent")
+        consent = st.checkbox("전송 안내를 확인했고, 선택한 사진과 식물·관리 기록·이전 제안 및 경과를 Google로 보내 분석합니다.", key="ai_consent")
         submit = st.form_submit_button("Gemini로 분석", type="primary", disabled=not bool(key), width="stretch")
     if submit:
         if not consent:
@@ -69,6 +70,7 @@ def render_analysis(store, plant):
                 st.error("분석할 사진을 읽지 못했어요. 사진 파일을 확인해 주세요.")
 
     analyses = store.list_analyses(plant["id"])
+    suggestions = store.list_suggestions(plant["id"])
     st.write("")
     st.subheader("쌓아둔 AI 관찰")
     st.caption(f"저장된 분석 {len(analyses)}건 · AI 제안은 실제 관리 기록과 구분해서 보관합니다.")
@@ -81,13 +83,22 @@ def render_analysis(store, plant):
             for column, field, label in ((left, "checks", "먼저 확인할 것"), (right, "actions", "다음 관리 제안")):
                 with column:
                     st.write(f"**{label}**")
-                    for item in result[field]:
-                        st.write(f"• {item}")
+                    if field == "actions":
+                        for suggestion in suggestions:
+                            if suggestion["analysis_id"] == analysis["id"]:
+                                suggestion_card(store, suggestion, "analysis")
+                    else:
+                        for item in result[field]:
+                            st.write(f"• {item}")
             st.caption(result["uncertainty"])
             with st.expander("참고한 관찰과 분석 상세"):
                 for item in result["observations"]:
                     st.write(f"• {item}")
                 st.write(f"분석 당시 질문: {analysis['input']['current_state']}")
+                previous = analysis["input"].get("previous_suggestions", [])
+                st.caption(f"분석 당시 참고한 이전 제안 {len(previous)}건 · 실행과 경과를 구분해 반영")
+                if previous:
+                    st.json(previous)
                 if analysis["photo_path"]:
                     st.image(str(store.photo_path(analysis["photo_path"])), width=320)
                 st.caption(f"참고 기록 {len(analysis['input']['recent_care_logs'])}건 · 모델 {analysis['model']} · "

@@ -20,6 +20,50 @@ def click_button(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_suggestion_execution_observation_and_next_analysis_are_connected(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}), \
+                patch("plant_care.ai_ui.api_key", return_value="local-test-key"), \
+                patch("plant_care.ai_ui.analyze", return_value=(RESULT, {})) as api:
+            store = PlantStore(folder)
+            plant = store.add_plant("몬스테라")
+            from plant_care.gemini import analysis_context
+            store.add_analysis(plant, "test-model", analysis_context(store, plant, "첫 질문", False), RESULT, {})
+            sid = store.list_suggestions(plant)[0]['id']
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.selectbox(key="selected_plant").select(plant).run()
+            app.button(key=f"analysis_suggestion_{sid}").click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(app.session_state[f"plant_tabs_{plant}"], "관리 기록")
+            self.assertEqual(app.selectbox(key=f"care_suggestion_{plant}").value, sid)
+            self.assertIsNone(app.selectbox(key="care_kind").value)
+            app.selectbox(key="care_kind").select("observation")
+            app.text_area(key="care_notes").set_value("흙이 촉촉해서 물을 주지 않고 관찰했어요")
+            click_button(app, "실행 기록 저장")
+            self.assertEqual(len(app.exception), 0)
+            self.assertIsNotNone(store.list_suggestions(plant)[0]['execution'])
+            self.assertEqual(app.radio(key=f"care_mode_{plant}").value, "실행 후 경과")
+            app.selectbox(key="care_outcome").select("unchanged")
+            app.text_area(key="care_notes").set_value("잎 상태는 비슷해요")
+            click_button(app, "경과 기록 저장")
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(store.list_suggestions(plant)[0]['observations'][0]['outcome'], "unchanged")
+            self.assertEqual(len(store.list_logs(plant)), 2)
+            api.assert_not_called()
+            app.text_area(key="ai_state").set_value("지난 관리와 이후 변화를 참고해서 다음 관리를 알려주세요")
+            app.checkbox(key="ai_consent").check()
+            click_button(app, "Gemini로 분석")
+            self.assertEqual(len(app.exception), 0)
+            api.assert_called_once()
+            context = api.call_args.args[1]
+            self.assertEqual(context['previous_suggestions'][0]['execution']['kind'], 'observation')
+            self.assertEqual(context['previous_suggestions'][0]['observations'][0]['notes'], '잎 상태는 비슷해요')
+            relaunched = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            relaunched.selectbox(key="selected_plant").select(plant).run()
+            self.assertEqual(len(relaunched.exception), 0)
+            self.assertEqual(store.list_analyses(plant)[0]['input'], context)
+            self.assertEqual(len(store.list_logs(plant)), 2)
+            api.assert_called_once()
+
     def test_garden_navigation_preserves_photo_records_and_never_calls_ai(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}), \
                 patch("plant_care.ai_ui.analyze") as api:

@@ -80,5 +80,8 @@ def timeline(store, logs, care_types, outcomes, limit=None):
                     f'<span>{escape(log["occurred_on"])}{escape(outcome)}</span></div>')
             if log["notes"]:
                 st.write(log["notes"])
+            if log.get("suggestion_id"):
+                label = "AI 제안 실행" if log["link_type"] == "execution" else "AI 관리 후 경과"
+                st.caption(f"{label} · {log['suggestion_text']}")
             if log["photo_path"]:
                 st.image(str(store.photo_path(log["photo_path"])), width=320)

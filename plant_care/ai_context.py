@@ -15,4 +15,5 @@ def build_context(store: PlantStore, plant_id: int, recent_limit: int = 30) -> d
         "plant": plant,
         "last_watered": store.last_watered(plant_id),
         "recent_care_logs": logs,
+        "previous_suggestions": store.list_suggestions(plant_id, limit=10),
     }
