@@ -10,6 +10,8 @@ import streamlit as st
 from .gemini import AnalysisError, MODEL, analysis_context, analyze
 from .ui import escape
 from .care_ui import suggestion_card
+from .weather import REGIONS, WeatherError, fetch_weather, unavailable_weather
+from .weather_ui import region_settings, show_weather
 
 
 def api_key() -> str:
@@ -24,12 +26,13 @@ def api_key() -> str:
 def render_analysis(store, plant):
     st.subheader("지금 모습, 함께 살펴볼까요?")
     st.caption("사진 한 장과 쌓아둔 기록에서 다음 관리의 실마리를 찾아보세요.")
+    region = region_settings(store, plant['id'])
     key = api_key()
     if not key:
         st.info("Gemini API 키를 설정하면 분석을 사용할 수 있어요. 키는 .streamlit/secrets.toml에 입력하세요.")
     with st.expander("분석에 사용하는 정보와 무료 구간 안내"):
         st.caption("현재 상태와 최근 관리 기록 최대 30건, 이전 제안 최대 10건과 각 제안의 최근 경과 3건, 선택한 사진 1장을 Google Gemini로 보냅니다. "
-                   "무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
+                   "선택한 경우 지역 실외 날씨도 함께 보냅니다. 무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
         st.caption("무료 사용은 AI Studio의 Free Tier 프로젝트에서 설정해 주세요. "
                    "앱은 결제 상태를 확인할 수 없으며, 결제를 연결한 프로젝트의 키는 과금될 수 있어요.")
         st.caption(f"사용 모델: {MODEL} · 버튼을 누를 때만 호출")
@@ -42,7 +45,13 @@ def render_analysis(store, plant):
             photo = st.file_uploader("분석할 현재 사진 (선택)", type=["jpg", "jpeg", "png", "webp"], key="ai_photo")
             use_registered = st.checkbox("새 사진이 없으면 등록 사진 함께 보내기", value=False, key="ai_use_registered",
                                        disabled=not bool(plant["photo_path"]))
-        consent = st.checkbox("전송 안내를 확인했고, 선택한 사진과 식물·관리 기록·이전 제안 및 경과를 Google로 보내 분석합니다.", key="ai_consent")
+        include_weather = st.checkbox('선택한 지역의 실외 날씨 함께 참고', value=False,
+                                      key=f'ai_weather_{plant["id"]}', disabled=region is None)
+        if region:
+            st.caption(f'{REGIONS[region][0]}의 대표 좌표로 Open-Meteo에 날씨를 요청하고, 받은 날씨를 Gemini 분석에 포함합니다.')
+        else:
+            st.caption('날씨를 함께 참고하려면 위에서 지역을 저장해 주세요.')
+        consent = st.checkbox("전송 안내를 확인했고, 선택한 사진과 식물·관리 기록·이전 제안 및 경과와 선택한 경우 지역 날씨를 Google로 보내 분석합니다.", key="ai_consent")
         submit = st.form_submit_button("Gemini로 분석", type="primary", disabled=not bool(key), width="stretch")
     if submit:
         if not consent:
@@ -54,7 +63,15 @@ def render_analysis(store, plant):
                 image = photo.getvalue() if photo is not None else (
                     store.photo_path(plant["photo_path"]).read_bytes() if use_registered and plant["photo_path"] else None
                 )
-                context = analysis_context(store, plant["id"], state, image is not None)
+                weather = None
+                if include_weather and region:
+                    try:
+                        with st.spinner('분석에 참고할 실외 날씨를 확인하고 있어요…'):
+                            weather = fetch_weather(region)
+                    except WeatherError as error:
+                        st.warning(f'{error} 이번에는 사진과 기록으로만 분석합니다.')
+                        weather = unavailable_weather(region)
+                context = analysis_context(store, plant["id"], state, image is not None, weather)
                 with st.spinner("사진과 관리 기록을 분석하고 있어요…"):
                     result, usage = analyze(key, context, image)
                 try:
@@ -79,6 +96,9 @@ def render_analysis(store, plant):
         with st.expander(f"{timestamp:%Y.%m.%d %H:%M} · {'최근 관찰' if index == 0 else '지난 관찰'}", expanded=index == 0):
             result = analysis["result"]
             st.html(f'<div class="ai-summary">{escape(result["summary"])}</div>')
+            if weather := analysis['input'].get('outdoor_weather'):
+                with st.expander('분석 당시 참고한 지역 날씨'):
+                    show_weather(weather)
             left, right = st.columns(2, gap="large")
             for column, field, label in ((left, "checks", "먼저 확인할 것"), (right, "actions", "다음 관리 제안")):
                 with column:

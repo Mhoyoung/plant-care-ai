@@ -1,7 +1,8 @@
 """Gemini Interactions REST API. 키와 원문 오류는 화면이나 DB에 남기지 않는다."""
 
 import base64
-from datetime import date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -18,6 +19,10 @@ previous_suggestions에는 이전 제안과 사용자가 기록한 실행·경�
 실행 여부와 관찰 결과를 구분하세요. 경과 미확인을 실패로 보거나, 상태 변화의 원인을 특정 관리로 확정하지 마세요.
 이전 제안의 조건과 실제로 한 관리, 이후 변화를 참고해 다음 확인 사항과 제안을 작성하세요.
 사진만으로 흙 수분, 병명, 실내 온습도를 확정하거나 확인 없이 물주기·약제 사용을 지시하지 마세요.
+outdoor_weather가 있으면 도시 대표 좌표의 실외 모델 추정치입니다. valid_at은 해당 값의 기준 시각입니다.
+실외 날씨를 실내 온습도, 화분 흙 수분, 식물의 실제 광량으로 취급하지 마세요. 지역의 비가 실내 화분에 내렸다고 하지 마세요.
+날씨는 추가 확인 사항을 제안하는 참고 자료로만 사용하세요. 날씨만으로 물주기 시기나 양을 확정하지 마세요.
+날씨 status가 unavailable이거나 필드가 없으면 날씨를 참고하지 않았다고 하고 수치를 만들어내지 마세요.
 checks에는 사용자가 먼저 확인할 사항을, actions에는 확인 조건이 포함된 실행 가능한 제안을 넣으세요.
 uncertainty에는 정보 부족과 분석의 한계를 써 주세요. 비율 형태의 근거 없는 정확도를 만들지 마세요."""
 FIELDS = ("summary", "observations", "checks", "actions", "uncertainty")
@@ -34,7 +39,7 @@ class AnalysisError(Exception):
     """사용자에게 그대로 보여도 되는 오류 안내."""
 
 
-def analysis_context(store, plant_id: int, current_state: str, has_photo: bool) -> dict:
+def analysis_context(store, plant_id: int, current_state: str, has_photo: bool, weather: dict | None = None) -> dict:
     context = build_context(store, plant_id)
     # 외부로 보낼 필요가 없는 로컬 식별자와 파일 경로를 제외한다.
     context["plant"] = {key: context["plant"][key] for key in ("name", "species", "location", "notes")}
@@ -49,7 +54,9 @@ def analysis_context(store, plant_id: int, current_state: str, has_photo: bool) 
          "observations": [{key: log[key] for key in log_fields} for log in item["observations"][-3:]]}
         for item in context["previous_suggestions"]
     ]
-    context.update(today=date.today().isoformat(), current_state=current_state.strip(), has_photo=has_photo)
+    context.update(today=datetime.now(ZoneInfo('Asia/Seoul')).date().isoformat(), current_state=current_state.strip(), has_photo=has_photo)
+    if weather is not None:
+        context['outdoor_weather'] = weather
     return context
 
 
