@@ -1,63 +1,52 @@
-"""식물 등록과 관리 기록을 위한 첫 Streamlit 화면."""
-
+"""내 정원, 식물별 관리 기록과 AI 관찰 화면."""
 from datetime import date
 import json
 import os
 from pathlib import Path
 import sqlite3
-
 import streamlit as st
-
 from plant_care.constants import CARE_TYPES, OUTCOMES
 from plant_care.storage import PlantStore
 from plant_care.ai_ui import render_analysis
-
+from plant_care import ui
 
 APP_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.environ.get("PLANT_CARE_DATA_DIR", str(APP_ROOT / "data")))
-
-st.set_page_config(page_title="내 식물 기록", page_icon="🌿", layout="centered")
+st.set_page_config(page_title="내 식물 기록 · 내 정원", page_icon="🌿", layout="wide")
+ui.style()
 store = PlantStore(DATA_ROOT)
 plants = store.list_plants()
 plant_by_id = {plant["id"]: plant for plant in plants}
-
 if "_select_after_save" in st.session_state:
     st.session_state["selected_plant"] = st.session_state.pop("_select_after_save")
-if st.session_state.get("selected_plant", 0) not in [0, *plant_by_id]:
-    st.session_state["selected_plant"] = 0
-
+if "selected_plant" not in st.session_state:
+    st.session_state["selected_plant"] = -1 if plants else 0
+if st.session_state["selected_plant"] not in [-1, 0, *plant_by_id]:
+    st.session_state["selected_plant"] = -1 if plants else 0
 with st.sidebar:
-    st.header("🌿 내 식물")
-    selected_id = st.selectbox(
-        "식물 선택",
-        options=[0, *plant_by_id],
-        format_func=lambda value: "＋ 새 식물 등록" if value == 0 else plant_by_id[value]["name"],
-        key="selected_plant",
-    )
-    st.caption(f"등록한 식물 {len(plants)}개")
-
-st.title("내 식물 기록")
-st.caption("물 준 날과 작은 변화를 남겨보세요.")
+    st.html('<div class="eyebrow">A LITTLE GREEN, EVERY DAY</div><div class="sidebar-brand">내 식물 기록</div><div class="sidebar-note">함께 자라는 나의 작은 정원</div>')
+    selected_id = st.selectbox("둘러보기", options=[-1, 0, *plant_by_id],
+        format_func=lambda value: "내 정원" if value == -1 else ("＋ 새 식물 등록" if value == 0 else plant_by_id[value]["name"]), key="selected_plant")
+    st.caption(f"함께 키우는 식물 {len(plants)}개")
+    st.html('<div class="sidebar-footer">PLANT JOURNAL<br>오늘의 작은 변화를 남겨보세요.</div>')
 if notice := st.session_state.pop("_notice", None):
     st.success(notice)
 
-if selected_id == 0:
-    st.subheader("새 식물 등록")
-    if not plants:
-        st.info("첫 식물을 등록하면 관리 기록을 남길 수 있어요.")
+def register_plant():
+    ui.heading("NEW COMPANION", "새로운 초록을 들여요", "이름과 사진을 남기면, 이 식물만의 기록이 시작돼요.")
     with st.form("register_plant"):
-        name = st.text_input("식물 이름 *", max_chars=100, placeholder="예: 몬스테라 A", key="plant_name")
-        species = st.text_input("종류", max_chars=100, placeholder="알고 있는 경우 입력", key="plant_species")
+        left, right = st.columns(2)
+        with left:
+            name = st.text_input("식물 이름 *", max_chars=100, placeholder="예: 몬스테라 A", key="plant_name")
+        with right:
+            species = st.text_input("종류", max_chars=100, placeholder="알고 있는 경우 입력", key="plant_species")
         location = st.text_input("키우는 장소", max_chars=200, placeholder="예: 거실 창가", key="plant_location")
-        notes = st.text_area("처음 상태와 메모", max_chars=3000, key="plant_notes")
+        notes = st.text_area("처음 상태와 메모", max_chars=3000, placeholder="처음 만난 날의 모습이나 기억하고 싶은 내용을 적어주세요.", key="plant_notes")
         photo = st.file_uploader("식물 사진", type=["jpg", "jpeg", "png", "webp"], key="plant_photo")
-        register = st.form_submit_button("식물 등록", type="primary")
+        register = st.form_submit_button("식물 등록", type="primary", width="stretch")
     if register:
         try:
-            new_id = store.add_plant(
-                name=name, species=species, location=location, notes=notes,
-                photo=photo.getvalue() if photo is not None else None,
-            )
+            new_id = store.add_plant(name=name, species=species, location=location, notes=notes, photo=photo.getvalue() if photo is not None else None)
         except ValueError as error:
             st.error(str(error))
         except (OSError, sqlite3.Error):
@@ -66,39 +55,23 @@ if selected_id == 0:
             st.session_state["_select_after_save"] = new_id
             st.session_state["_notice"] = "식물을 등록했어요. 첫 관리 기록을 남겨보세요."
             st.rerun()
-else:
-    plant = plant_by_id[selected_id]
-    st.subheader(plant["name"])
-    st.write(" · ".join(value for value in (plant["species"], plant["location"]) if value) or "종류와 장소 미입력")
-    if plant["photo_path"]:
-        st.image(str(store.photo_path(plant["photo_path"])), width=320)
-    if plant["notes"]:
-        st.write(plant["notes"])
 
-    logs = store.list_logs(selected_id)
-    last_watered = store.last_watered(selected_id)
-    left, right = st.columns(2)
-    left.metric("마지막 물주기", last_watered or "기록 없음")
-    right.metric("관리 기록", f"{len(logs)}개")
-
-    st.subheader("관리 기록 남기기")
-    with st.form(f"care_log_{selected_id}", clear_on_submit=True):
-        kind = st.selectbox("관리 종류", list(CARE_TYPES), format_func=CARE_TYPES.get, key="care_kind")
-        occurred_on = st.date_input("기록 날짜", value=date.today(), max_value=date.today(), key="care_date")
-        outcome = st.selectbox(
-            "이전 기록과 비교한 상태", list(OUTCOMES), format_func=OUTCOMES.get,
-            help="경과를 아직 확인하지 않았다면 '미확인'을 선택하세요.", key="care_outcome",
-        )
-        log_notes = st.text_area("상태와 메모", max_chars=3000, placeholder="예: 흙이 말랐는지 확인했고, 잎이 조금 처져 있어요.", key="care_notes")
-        log_photo = st.file_uploader("오늘의 사진", type=["jpg", "jpeg", "png", "webp"], key="care_photo")
-        save_log = st.form_submit_button("기록 저장", type="primary")
-    if save_log:
+def care_form(plant_id):
+    st.subheader("오늘의 관리 기록")
+    st.caption("무엇을 했는지, 이후 상태는 어떤지 차근차근 남겨주세요.")
+    with st.form(f"care_log_{plant_id}", clear_on_submit=True):
+        left, right = st.columns(2)
+        with left:
+            kind = st.selectbox("관리 종류", list(CARE_TYPES), format_func=CARE_TYPES.get, key="care_kind")
+        with right:
+            occurred_on = st.date_input("기록 날짜", value=date.today(), max_value=date.today(), key="care_date")
+        outcome = st.selectbox("이전 기록과 비교한 상태", list(OUTCOMES), format_func=OUTCOMES.get, help="경과를 아직 확인하지 않았다면 '미확인'을 선택하세요.", key="care_outcome")
+        notes = st.text_area("상태와 메모", max_chars=3000, placeholder="예: 흙 상태를 확인하고 물을 줬어요. 잎이 조금 처져 있어요.", key="care_notes")
+        photo = st.file_uploader("오늘의 사진", type=["jpg", "jpeg", "png", "webp"], key="care_photo")
+        save = st.form_submit_button("기록 저장", type="primary", width="stretch")
+    if save:
         try:
-            store.add_log(
-                plant_id=selected_id, kind=kind, occurred_on=occurred_on,
-                notes=log_notes, outcome=outcome,
-                photo=log_photo.getvalue() if log_photo is not None else None,
-            )
+            store.add_log(plant_id=plant_id, kind=kind, occurred_on=occurred_on, notes=notes, outcome=outcome, photo=photo.getvalue() if photo is not None else None)
         except ValueError as error:
             st.error(str(error))
         except (OSError, sqlite3.Error):
@@ -107,25 +80,74 @@ else:
             st.session_state["_notice"] = "관리 기록을 저장했어요."
             st.rerun()
 
-    st.subheader("관리 타임라인")
-    if not logs:
-        st.info("아직 기록이 없어요. 물주기나 상태 관찰부터 남겨보세요.")
-    for log in logs:
-        with st.container(border=True):
-            st.write(f"**{log['occurred_on']} · {CARE_TYPES[log['kind']]}**")
-            if log["outcome"] != "unrecorded":
-                st.caption(f"이전 기록과 비교: {OUTCOMES[log['outcome']]}")
-            if log["notes"]:
-                st.write(log["notes"])
-            if log["photo_path"]:
-                st.image(str(store.photo_path(log["photo_path"])), width=320)
+def garden():
+    ui.hero()
+    records = {p["id"]: store.list_logs(p["id"]) for p in plants}
+    analyses = {p["id"]: store.list_analyses(p["id"]) for p in plants}
+    columns = st.columns(3)
+    with columns[0]:
+        ui.stat("함께 키우는 식물", f"{len(plants)}개", "나의 초록 동반자")
+    with columns[1]:
+        ui.stat("쌓인 관리 기록", f"{sum(map(len, records.values()))}건", "물주기부터 작은 관찰까지")
+    with columns[2]:
+        ui.stat("AI 관찰", f"{sum(map(len, analyses.values()))}건", "기록을 참고한 관리 제안")
+    st.write("")
+    st.subheader("나의 식물들")
+    st.caption("식물을 선택해 최근 변화와 관리 기록을 살펴보세요.")
+    for start in range(0, len(plants) + 1, 2):
+        slots = st.columns(2)
+        for offset, slot in enumerate(slots):
+            index = start + offset
+            with slot:
+                if index < len(plants):
+                    plant = plants[index]
+                    ui.plant_card(store, plant, records[plant["id"]], analyses[plant["id"]])
+                elif index == len(plants):
+                    st.html('<div class="add-plant-card"><b>＋</b><h3>새로운 초록을 만나보세요</h3><p>작은 화분 하나가<br>새로운 이야기의 시작이 돼요.</p></div>')
+                    st.button("＋ 새 식물 등록", key="garden_add", width="stretch", on_click=ui.navigate, args=(0,))
 
-    render_analysis(store, plant)
+def plant_detail(plant):
+    st.button("← 내 정원", key="back_to_garden", type="tertiary", on_click=ui.navigate, args=(-1,))
+    ui.detail_hero(store, plant)
+    logs = store.list_logs(plant["id"])
+    analyses = store.list_analyses(plant["id"])
+    last_watered = store.last_watered(plant["id"])
+    columns = st.columns(3)
+    with columns[0]:
+        ui.stat("마지막 물주기", last_watered or "기록 없음", ui.watering_label(last_watered))
+    with columns[1]:
+        ui.stat("관리 기록", f"{len(logs)}건", "이 식물과 함께한 순간")
+    with columns[2]:
+        ui.stat("AI 관찰", f"{len(analyses)}건", "저장한 분석 결과")
+    overview, care, ai = st.tabs(["한눈에 보기", "관리 기록", "AI 분석"], key=f"plant_tabs_{plant['id']}")
+    with overview:
+        left, right = st.columns([1.15, 1], gap="large")
+        with left:
+            st.subheader("최근의 작은 변화")
+            ui.timeline(store, logs, CARE_TYPES, OUTCOMES, limit=3)
+        with right:
+            st.subheader("최근 AI 관찰")
+            if analyses:
+                st.html('<div class="ai-result-title">LATEST INSIGHT</div>' + f'<div class="ai-summary">{ui.escape(analyses[0]["result"]["summary"])}</div>')
+                st.caption("전체 제안과 확인할 사항은 AI 분석 탭에서 살펴보세요.")
+            else:
+                st.html('<div class="quiet-empty"><span>이 식물에 대해 궁금한 게 있나요?</span><p>AI 분석 탭에서 현재 모습과 기록을 함께 살펴보세요.</p></div>')
+    with care:
+        left, right = st.columns(2, gap="large")
+        with left:
+            care_form(plant["id"])
+        with right:
+            st.subheader("관리 타임라인")
+            st.caption("남겨둔 기록을 시간순으로 모았어요.")
+            ui.timeline(store, logs, CARE_TYPES, OUTCOMES)
+    with ai:
+        render_analysis(store, plant)
+    st.divider()
+    st.download_button("이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="기록을 JSON 파일로 저장합니다. 사진 원본은 data/photos 폴더에 별도로 있습니다.")
 
-    st.download_button(
-        "이 식물의 기록 내려받기",
-        data=json.dumps(store.export_plant(selected_id), ensure_ascii=False, indent=2),
-        file_name=f"plant-{selected_id}-records.json",
-        mime="application/json",
-        help="기록을 JSON 파일로 저장합니다. 사진 원본은 data/photos 폴더에 별도로 있습니다.",
-    )
+if selected_id == -1:
+    garden()
+elif selected_id == 0:
+    register_plant()
+else:
+    plant_detail(plant_by_id[selected_id])

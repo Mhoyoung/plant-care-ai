@@ -1,0 +1,80 @@
+:root { --garden-ink:#254632; --garden-soft:#72806e; --garden-line:#e3e7dc; }
+.stApp { background:#fafbf6; }
+[data-testid="stMainBlockContainer"] { max-width:1180px; padding:2.4rem 2rem 3rem; }
+[data-testid="stSidebar"] { background:#eff3e9; border-right:1px solid #e1e7d9; width:250px !important; min-width:250px !important; }
+[data-testid="stSidebar"] > div:first-child { width:250px; }
+[data-testid="stSidebarUserContent"] { padding-top:2.8rem; }
+[data-testid="stSidebar"] [data-testid="stSelectbox"] { margin-top:1.8rem; }
+[data-testid="stHeader"] { background:transparent; }
+.eyebrow { color:#758264; font-size:10px; font-weight:700; letter-spacing:2px; }
+.sidebar-brand { color:#284934; font-size:25px; font-weight:600; letter-spacing:-1px; margin:8px 0; }
+.sidebar-note { color:#798572; font-size:12px; line-height:1.8; }
+.sidebar-footer { margin-top:3rem; padding-top:1rem; border-top:1px solid #dce3d3; color:#7a866f; font-size:11px; letter-spacing:1px; line-height:1.9; }
+.hero-copy { z-index:1; flex:1; }
+.st-key-garden_hero { background:#edf2e4; padding:28px; border-radius:24px; margin-bottom:14px; }
+.hero-copy h1 { color:var(--garden-ink); font-size:clamp(26px,3vw,37px); font-weight:600; line-height:1.45; letter-spacing:-1.8px; padding:17px 0 14px; margin:0; }
+.hero-copy p { color:#718168; font-size:13px; line-height:1.9; margin:0; }
+.hero-foot { display:block; margin-top:27px; font-size:9px; letter-spacing:2px; color:#82916f; }
+.garden-stat { background:white; border:1px solid var(--garden-line); border-radius:15px; padding:18px 22px; min-height:113px; }
+.garden-stat > span { color:#77816e; font-size:12px; display:block; }
+.garden-stat strong { display:block; color:var(--garden-ink); font-size:27px; letter-spacing:-1px; font-weight:600; margin:5px 0 2px; }
+.garden-stat small { color:#69775e; font-size:11px; }
+h2,h3 { color:var(--garden-ink); letter-spacing:-.7px; }
+h3 { font-size:20px !important; }
+[data-testid="stVerticalBlockBorderWrapper"] > div { border-color:var(--garden-line) !important; border-radius:16px !important; }
+div[class*="st-key-plant_card_"] { background:#fff; padding:13px !important; border-radius:18px !important; }
+div[class*="st-key-photo_card_"] { background:#edf2e4; border-radius:12px; padding:8px; }
+div[class*="st-key-photo_card_"] [data-testid="stImage"] img { height:185px; object-fit:contain; width:100%; }
+div[class*="st-key-photo_detail_"] [data-testid="stImage"] img { height:210px; object-fit:contain; width:100%; }
+div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-size:11px; color:#64755c; }
+.st-key-plant_detail_hero { background:#edf2e4; padding:15px; border-radius:22px; margin-bottom:14px; }
+.plant-card-copy { padding:18px 7px 2px; }
+.plant-card-copy h3 { margin:7px 0 5px; padding:0; font-weight:600; }
+.plant-card-copy p { color:#85907b; font-size:12px; margin:0 0 17px; }
+.care-chip { display:inline-block; background:#edf3e7; color:#51754d; font-size:11px; border-radius:20px; padding:5px 10px; }
+.card-counts { margin:12px 0 9px; color:#87907f; font-size:11px; }
+.card-counts span { margin:0 7px; }
+.add-plant-card { min-height:324px; border:1px dashed #cbd5bf; border-radius:16px; background:#f3f6ed; padding:50px 25px 25px; display:flex; align-items:center; justify-content:center; flex-direction:column; text-align:center; }
+.add-plant-card b { border-radius:50%; background:#e5ecda; width:52px; height:52px; line-height:49px; color:#758b61; font-size:29px; font-weight:300; }
+.add-plant-card h3 { margin-top:20px; font-size:18px !important; }
+.add-plant-card p { color:#849078; font-size:12px; line-height:1.9; }
+.page-heading { margin:8px 0 25px; }
+.page-heading h1 { font-size:32px; color:var(--garden-ink); font-weight:600; letter-spacing:-1.5px; margin:12px 0 6px; padding:0; }
+.page-heading p { color:#7b8871; font-size:13px; }
+.detail-copy { padding:30px 32px 25px; flex:1; }
+.detail-copy h1 { font-size:30px; font-weight:600; color:var(--garden-ink); margin:12px 0 10px; padding:0; letter-spacing:-1px; overflow-wrap:anywhere; }
+.plant-meta { color:#687b5e; font-size:12px; line-height:1.8; }
+.plant-meta span { margin:0 9px; color:#a2af93; }
+.detail-copy p { color:#7c8772; font-size:12px; line-height:1.9; margin:19px 0 18px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.detail-foot { font-size:10px; color:#8c977f; letter-spacing:1px; }
+[data-testid="stTabs"] { margin-top:14px; }
+[data-baseweb="tab-list"] { gap:24px; border-bottom:1px solid #e2e7d9; }
+[data-baseweb="tab"] { height:49px; background:transparent; font-size:13px; }
+[data-baseweb="tab-highlight"] { background:#3e6b43; height:2px; }
+[data-testid="stForm"] { background:#fff; border-color:var(--garden-line); padding:22px; border-radius:17px; }
+[data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button, [data-testid="stDownloadButton"] button { border-radius:10px; min-height:41px; font-size:12px; }
+[data-testid="stTextInput"] input, [data-testid="stTextArea"] textarea { background:#f5f7f0; }
+.timeline-top { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:5px; }
+.timeline-top > span:last-child { color:#899280; font-size:11px; }
+.quiet-empty { padding:30px 20px; text-align:center; background:#f1f5eb; border-radius:14px; margin:8px 0 15px; }
+.quiet-empty span { color:#4e704b; font-size:14px; }
+.quiet-empty p { color:#8a957e; font-size:12px; margin-top:10px; }
+.ai-summary { background:#edf3e6; border-left:3px solid #8da66e; border-radius:0 13px 13px 0; padding:22px; color:#3e5f3c; font-size:14px; line-height:1.9; margin:9px 0 18px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.ai-result-title { color:#7b886e; font-size:10px; letter-spacing:1.5px; margin:8px 0; }
+@media(max-width:1100px) {
+  .hero-copy h1 { font-size:28px; }
+  .detail-copy { padding:24px; }
+}
+@media(max-width:600px) {
+  [data-testid="stMainBlockContainer"] { padding:1.8rem 1rem; }
+  .st-key-garden_hero { padding:24px 20px; }
+  .st-key-garden_hero [data-testid="stImage"] { display:none; }
+  .hero-copy h1 { font-size:27px; }
+  .hero-copy { position:relative; }
+  .garden-stat { padding:15px 17px; min-height:auto; }
+  .garden-stat strong { font-size:23px; }
+  .hero-copy p { font-size:12px; }
+  .detail-copy { padding:22px; }
+  .detail-copy h1 { font-size:27px; }
+  [data-baseweb="tab-list"] { gap:12px; }
+}
