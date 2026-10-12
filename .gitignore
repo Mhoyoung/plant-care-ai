@@ -16,6 +16,8 @@ data/
 *.sqlite
 *.sqlite3
 plant-care-garden*.zip
+plant-care-comparison-*.json
+comparison-*.jpg
 
 # Secrets
 .env

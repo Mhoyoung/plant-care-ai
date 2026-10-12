@@ -61,19 +61,40 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
 .quiet-empty p { color:#8a957e; font-size:12px; margin-top:10px; }
 .ai-summary { background:#edf3e6; border-left:3px solid #8da66e; border-radius:0 13px 13px 0; padding:22px; color:#3e5f3c; font-size:14px; line-height:1.9; margin:9px 0 18px; white-space:pre-wrap; overflow-wrap:anywhere; }
 .ai-result-title { color:#7b886e; font-size:10px; letter-spacing:1.5px; margin:8px 0; }
+.st-key-top_nav { margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--garden-line); }
+.mobile-brand { font-size:20px; font-weight:700; color:var(--garden-ink); margin-bottom:12px; }
+.mobile-brand span { font-size:12px; font-weight:400; color:#69775e; margin-left:12px; }
+.st-key-top_nav button, .st-key-detail_actions button { min-height:48px; font-size:14px; }
 @media(max-width:1100px) {
   .hero-copy h1 { font-size:28px; }
   .detail-copy { padding:24px; }
 }
 @media(max-width:600px) {
-  [data-testid="stMainBlockContainer"] { padding:1.8rem 1rem; }
-  .st-key-garden_hero { padding:24px 20px; }
+  [data-testid="stMainBlockContainer"] { padding:1.2rem 1rem 3rem; }
+  [data-testid="stHorizontalBlock"] { flex-wrap:wrap; gap:12px; }
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { width:100% !important; flex:1 1 100% !important; min-width:0 !important; }
+  .st-key-top_nav [data-testid="stHorizontalBlock"], .st-key-detail_actions [data-testid="stHorizontalBlock"], .st-key-garden_stats [data-testid="stHorizontalBlock"], .st-key-detail_stats [data-testid="stHorizontalBlock"] { flex-wrap:nowrap; gap:8px; }
+  .st-key-top_nav [data-testid="stColumn"], .st-key-detail_actions [data-testid="stColumn"], .st-key-garden_stats [data-testid="stColumn"], .st-key-detail_stats [data-testid="stColumn"] { width:auto !important; flex:1 1 0 !important; }
+  .mobile-brand { font-size:19px; }
+  .mobile-brand span { display:block; margin:4px 0 0; }
+  [data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button, [data-testid="stDownloadButton"] button { min-height:48px; font-size:14px; }
+  [data-testid="stForm"] { padding:16px; }
+  .page-heading h1 { font-size:27px; line-height:1.45; }
+  .page-heading p, .hero-copy p, .detail-copy p { font-size:14px; }
+  [data-baseweb="tab"] { font-size:14px; min-height:48px; }
+  .st-key-detail_stats .garden-stat strong { font-size:16px; overflow-wrap:anywhere; }
+  .st-key-garden_stats .garden-stat, .st-key-detail_stats .garden-stat { padding:12px 9px; }
+  .st-key-garden_stats .garden-stat small, .st-key-detail_stats .garden-stat small { display:none; }
+  .st-key-plant_detail_hero div[class*="st-key-photo_detail_"] [data-testid="stImage"] img { height:140px; }
+  .st-key-garden_hero { padding:18px 20px; }
   .st-key-garden_hero [data-testid="stImage"] { display:none; }
+  .st-key-garden_hero [data-testid="stColumn"]:has([data-testid="stImage"]) { display:none; }
+  .hero-foot { display:none; }
+  .hero-copy h1 { padding:12px 0; }
   .hero-copy h1 { font-size:27px; }
   .hero-copy { position:relative; }
   .garden-stat { padding:15px 17px; min-height:auto; }
   .garden-stat strong { font-size:23px; }
-  .hero-copy p { font-size:12px; }
   .detail-copy { padding:22px; }
   .detail-copy h1 { font-size:27px; }
   [data-baseweb="tab-list"] { gap:12px; }
