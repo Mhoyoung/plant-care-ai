@@ -8,11 +8,10 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from .gemini import AnalysisError, MODEL, analysis_context, analyze
-from .ui import escape, display_photo
-from .cloud_store import CloudError
-from .care_ui import suggestion_card
+from .ui import display_photo
 from .weather import REGIONS, WeatherError, fetch_weather, unavailable_weather
 from .weather_ui import region_settings, show_weather
+from .insight_ui import render_insight
 
 
 def api_key() -> str:
@@ -97,25 +96,12 @@ def render_analysis(store, plant):
         timestamp = datetime.fromisoformat(analysis["created_at"]).astimezone(ZoneInfo("Asia/Seoul"))
         with st.expander(f"{timestamp:%Y.%m.%d %H:%M} · {'최근 관찰' if index == 0 else '지난 관찰'}", expanded=index == 0):
             result = analysis["result"]
-            st.html(f'<div class="ai-summary">{escape(result["summary"])}</div>')
+            render_insight(result, analysis['input'], f"analysis_{analysis['id']}", store=store,
+                           suggestions=[s for s in suggestions if s['analysis_id'] == analysis['id']])
             if weather := analysis['input'].get('outdoor_weather'):
                 with st.expander('분석 당시 참고한 지역 날씨'):
                     show_weather(weather)
-            left, right = st.columns(2, gap="large")
-            for column, field, label in ((left, "checks", "먼저 확인할 것"), (right, "actions", "다음 관리 제안")):
-                with column:
-                    st.write(f"**{label}**")
-                    if field == "actions":
-                        for suggestion in suggestions:
-                            if suggestion["analysis_id"] == analysis["id"]:
-                                suggestion_card(store, suggestion, "analysis")
-                    else:
-                        for item in result[field]:
-                            st.write(f"• {item}")
-            st.caption(result["uncertainty"])
-            with st.expander("참고한 관찰과 분석 상세"):
-                for item in result["observations"]:
-                    st.write(f"• {item}")
+            with st.expander("분석 당시 기록·사진 보기"):
                 st.write(f"분석 당시 질문: {analysis['input']['current_state']}")
                 previous = analysis["input"].get("previous_suggestions", [])
                 st.caption(f"분석 당시 참고한 이전 제안 {len(previous)}건 · 실행과 경과를 구분해 반영")

@@ -10,6 +10,7 @@ from plant_care.cloud_store import CloudError
 from plant_care.data_ui import data_tools
 from plant_care.ai_ui import render_analysis
 from plant_care.comparison_ui import comparison_screen
+from plant_care.insight_ui import partner_note
 from plant_care.care_ui import care_form, open_care, suggestion_card
 from plant_care import ui
 
@@ -147,7 +148,8 @@ def plant_detail(plant):
         with right:
             st.subheader("최근 AI 관찰")
             if analyses:
-                st.html('<div class="ai-result-title">LATEST INSIGHT</div>' + f'<div class="ai-summary">{ui.escape(analyses[0]["result"]["summary"])}</div>')
+                latest_result = analyses[0]['result']
+                partner_note(latest_result['summary'], analyses[0]['input'], latest_result['checks'][0] if latest_result['checks'] else None)
                 st.caption("전체 제안과 확인할 사항은 AI 분석 탭에서 살펴보세요.")
             else:
                 st.html('<div class="quiet-empty"><span>이 식물에 대해 궁금한 게 있나요?</span><p>AI 분석 탭에서 현재 모습과 기록을 함께 살펴보세요.</p></div>')

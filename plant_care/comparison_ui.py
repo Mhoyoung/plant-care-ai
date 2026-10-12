@@ -6,6 +6,7 @@ from .comparison import CASES, SOURCE, demo_context, export_trial, new_trial, ru
 from .gemini import AnalysisError, analysis_context
 from .media import prepare_photo
 from .ui import heading
+from .insight_ui import render_insight
 
 LABELS = {"baseline": "기록 없이", "history": "기록 포함"}
 
@@ -88,12 +89,7 @@ def comparison_screen(store, plants):
                     st.rerun()
                 result = trial["results"].get(side)
                 if result:
-                    st.write(result["result"]["summary"])
-                    for field, label in (("checks", "먼저 확인할 것"), ("actions", "다음 행동")):
-                        st.write(f"**{label}**")
-                        for item in result["result"][field]:
-                            st.write(f"• {item}")
-                    st.caption(result["result"]["uncertainty"])
+                    render_insight(result["result"], trial['inputs'][side], f"compare_{side}")
                     st.caption(f"응답 전체 토큰: {result['usage'].get('total_tokens', '정보 없음')}")
                 elif side in trial["attempts"]:
                     if message := trial['attempts'][side].get('message'):
