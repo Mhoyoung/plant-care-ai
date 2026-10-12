@@ -16,7 +16,9 @@ SPROUT = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 
 
 def partner_note(summary, context, first_check=None):
-    labels = ["가상 사례" if context.get("evaluation_demo") else "기록 기반 안내"]
+    source = ("가상 사례" if context.get("evaluation_demo") else
+              "관리 기록 참고" if context.get("recent_care_logs") or context.get("previous_suggestions") else "현재 입력 참고")
+    labels = [source]
     labels.append("사진 포함" if context.get("has_photo") else "사진 없음")
     lead = (f"먼저 {check_title(first_check, 1)}부터 살펴볼까요?\n확인한 상태에 맞춰 다음 관리를 선택해요."
             if first_check else summary)
