@@ -16,6 +16,7 @@ def comparison_screen(store, plants):
     with st.expander("비교 방법과 참고 자료"):
         st.write("두 분석은 같은 모델·지시문·현재 상태·사진을 사용합니다. 등록 메모는 모두 제외하고, 과거 물주기·관리·제안·경과만 포함 여부를 달리합니다. 날씨는 이번 비교에서 사용하지 않습니다.")
         st.caption("질문에 과거 관리를 적으면 '기록 없이' 조건에도 전달됩니다. 현재 모습과 질문만 적어 주세요. AI 응답은 같은 조건에서도 달라질 수 있어 한 번의 비교를 성능 결론으로 삼지 마세요.")
+        st.markdown('[프로젝트·모델의 실제 요청 한도 확인](https://aistudio.google.com/rate-limit) · [429 원인별 안내](https://ai.google.dev/gemini-api/docs/api-errors?hl=ko)')
         st.markdown(f"가상 사례의 원예 참고: [메릴랜드대학교 실내 식물 문제 안내]({SOURCE}). 시듦은 물 부족과 과습 모두에서 나타날 수 있다는 설명을 바탕으로 구성했습니다. 사례 날짜·관리 기록은 가상이며 원문의 실제 사례가 아닙니다.")
     trial = st.session_state.get("comparison_trial")
     with st.expander("1 · 비교할 상황 준비", expanded=trial is None):

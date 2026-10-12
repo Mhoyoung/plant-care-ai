@@ -39,6 +39,50 @@ SCHEMA = {
 class AnalysisError(Exception):
     """사용자에게 그대로 보여도 되는 오류 안내."""
 
+    def __init__(self, message, *, http_status=None, error_code=None, retry_after_seconds=None):
+        super().__init__(message)
+        self.http_status = http_status
+        self.error_code = error_code
+        self.retry_after_seconds = retry_after_seconds
+
+
+def rate_limit_error(error):
+    """429 본문에서 허용한 코드만 읽는다. 원문·메시지·프로젝트 정보는 버린다."""
+    explanations = {
+        "rate_limit_exceeded": "Gemini의 분당·초당 요청 또는 토큰 한도에 도달했어요. 잠시 기다린 뒤 직접 다시 시도해 주세요.",
+        "quota_exceeded": "Gemini의 일일 할당량에 도달했어요. AI Studio에서 해당 프로젝트·모델의 일일 한도와 재설정 시점을 확인해 주세요.",
+        "too_many_requests": "짧은 시간에 Gemini 요청이 집중됐어요. 잠시 기다린 뒤 요청 간격을 두고 직접 다시 시도해 주세요.",
+    }
+    code = None
+    try:
+        raw = error.read(65_537)
+        if len(raw) <= 65_536:
+            body = json.loads(raw)
+            detail = body.get("error") if isinstance(body, dict) else None
+            candidate = detail.get("code") if isinstance(detail, dict) else None
+            if isinstance(candidate, str) and candidate in explanations:
+                code = candidate
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    finally:
+        try:
+            error.close()
+        except OSError:
+            pass
+    retry_seconds = None
+    value = error.headers.get("Retry-After", "") if error.headers else ""
+    if isinstance(value, str) and value.isascii() and value.isdigit() and len(value) <= 5:
+        seconds = int(value)
+        if 0 < seconds <= 86_400:
+            retry_seconds = seconds
+    message = explanations.get(code, "Gemini가 429(요청 한도 제한)로 응답했어요. 세부 원인은 확인되지 않아 AI Studio에서 해당 프로젝트·모델의 RPM·TPM·RPD를 확인해 주세요.")
+    if code:
+        message += f" 원인 코드: {code}."
+    if retry_seconds and code != "quota_exceeded":
+        message += f" 서버가 안내한 대기 시간은 {retry_seconds}초이며 이후 성공을 보장하지는 않습니다."
+    message += " 자동 재시도하지 않았어요."
+    return AnalysisError(message, http_status=429, error_code=code, retry_after_seconds=retry_seconds)
+
 
 def analysis_context(store, plant_id: int, current_state: str, has_photo: bool, weather: dict | None = None) -> dict:
     context = build_context(store, plant_id)
@@ -104,12 +148,13 @@ def analyze(api_key: str, context: dict, photo: bytes | None = None) -> tuple[di
                  and type(value) is int and value >= 0}
         return result, usage
     except HTTPError as error:
+        if error.code == 429:
+            raise rate_limit_error(error) from None
         messages = {
             400: "요청을 처리하지 못했어요. API 키와 모델 사용 가능 여부를 확인해 주세요.",
             401: "Gemini API 키 인증에 실패했어요. 로컬 설정을 확인해 주세요.",
             403: "이 키로 Gemini를 사용할 권한이 없어요. AI Studio의 프로젝트 설정을 확인해 주세요.",
             404: "설정한 Gemini 모델을 사용할 수 없어요. 모델 제공 상태를 확인해 주세요.",
-            429: "Gemini 요청 한도에 도달했어요. 무료 한도를 확인하고 나중에 다시 시도해 주세요. 자동 재시도하지 않았어요.",
         }
         raise AnalysisError(messages.get(error.code, "Gemini 연결에 실패했어요. 잠시 후 다시 시도해 주세요.")) from None
     except (URLError, TimeoutError, OSError):

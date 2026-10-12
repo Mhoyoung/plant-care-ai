@@ -73,6 +73,9 @@ def run_side(trial, side, key, consent):
     except (AnalysisError, ValueError) as error:
         trial["attempts"][side]["status"] = "failed"
         trial["attempts"][side]["message"] = str(error)
+        if isinstance(error, AnalysisError):
+            trial["attempts"][side]["error"] = {"http_status": error.http_status, "error_code": error.error_code,
+                                                 "retry_after_seconds": error.retry_after_seconds}
         raise
     trial["results"][side] = {"result": result, "usage": usage}
     trial["attempts"][side]["status"] = "completed"

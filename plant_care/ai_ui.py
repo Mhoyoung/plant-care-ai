@@ -37,6 +37,7 @@ def render_analysis(store, plant):
         st.caption("무료 사용은 AI Studio의 Free Tier 프로젝트에서 설정해 주세요. "
                    "앱은 결제 상태를 확인할 수 없으며, 결제를 연결한 프로젝트의 키는 과금될 수 있어요.")
         st.caption(f"사용 모델: {MODEL} · 버튼을 누를 때만 호출")
+        st.markdown('[프로젝트·모델의 실제 요청 한도 확인](https://aistudio.google.com/rate-limit) · [429 원인별 안내](https://ai.google.dev/gemini-api/docs/api-errors?hl=ko)')
     with st.form(f"analysis_{plant['id']}"):
         left, right = st.columns([1.2, 1], gap="large")
         with left:
