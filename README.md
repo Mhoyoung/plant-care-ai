@@ -4,192 +4,157 @@
 
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
-![SQLite](https://img.shields.io/badge/Storage-SQLite-003B57?logo=sqlite&logoColor=white)
-![관리 결과 연결](https://img.shields.io/badge/현재_단계-관리_결과_연결-2E7D32)
+![SQLite · Supabase](https://img.shields.io/badge/Storage-SQLite_%2F_Supabase-2E7D32)
+![검증 단계](https://img.shields.io/badge/현재_단계-팀_테스트와_AI_검증-2E7D32)
 
-**[빠른 시작](#빠른-시작)** · **[개발 계획](docs/ROADMAP.md)** · **[작업 목록](https://github.com/Mhoyoung/plant-care-ai/issues)** · **[변경 기록 · PR](https://github.com/Mhoyoung/plant-care-ai/pulls?q=is%3Apr)**
+**[공유 앱 열기](https://plant-care-ai-bh5dtxenovacdz7hc4bdvj.streamlit.app/)** · **[팀원 사용·테스트 안내](docs/TEAM_TESTING.md)** · **[내 PC에서 실행](#내-pc에서-실행)** · **[개발 계획](docs/ROADMAP.md)**
 
-- **현재 상태:** 팀원들과 테스트하는 Python 웹 시제품. 식물·관리 기록, Gemini 분석, 제안·실행·경과와 지역 날씨를 연결했습니다.
-- **사용 준비:** AI 분석은 본인의 Gemini 키가 필요합니다. [무료 구간 설정](docs/AI_SETUP.md)
-- **팀원 저장소:** Supabase와 비공개 사진 저장소를 연결할 수 있습니다. [기존 정원 백업·연결 안내](docs/CLOUD_STORAGE.md)
-- **모바일 우선:** 정원·등록·AI 비교 바로가기와 오늘 상태 기록을 휴대폰에서 쉽게 사용하도록 구성했습니다. [화면 흐름](docs/MOBILE_UX.md)
-- **AI 비교:** 가상 사례 또는 내 식물의 같은 상태·사진에 과거 기록만 달리 전달합니다. [비교 방법과 한계](docs/AI_COMPARISON.md)
-- **읽기 쉬운 AI 안내:** 새싹 안내와 확인 카드 3개를 먼저 보여주고 조건부 관리·한계·전체 원문은 펼쳐봅니다. [유사 앱과 참고 방향](docs/COMPETITORS.md)
-- **다음 목표:** 실제 식물로 반복 사용·제안 품질 검증과 AI 파트너 마스코트.
-- **개발 방식:** 혼자 개발하며 기능 단위로 작게 구현하고 직접 사용해봅니다.
+사진과 관리 기록을 함께 참고해 **확인할 사항 → 조건에 맞는 관리 → 이후 관찰**을 연결하는 Python 웹 시제품입니다.
+기본 기능과 모바일 웹 화면은 구현했으며, 현재는 팀원이 사용해 보면서 사용성과 AI 제안 품질을 검증하는 단계입니다.
+실제 식물의 진단 정확도나 회복 효과를 입증한 제품은 아닙니다.
 
-![내 식물 기록의 실제 내 정원 화면](docs/images/app-garden.jpg)
+## 팀원이 처음 사용할 때
 
-*실제 내 정원 화면입니다. 사진 없는 식물은 예시 일러스트로 표시합니다. 식물 카드를 열면 한눈에 보기·관리 기록·AI 분석 탭을 사용할 수 있습니다.*
+1. 위 **공유 앱** 링크를 휴대폰 또는 PC에서 엽니다.
+2. 로그인·접근 권한 안내가 나오면 관리자가 초대한 이메일 계정으로 접속합니다. 접근되지 않으면 관리자에게 확인을 요청하세요.
+3. **내 정원 → 식물 살펴보기 → 관리 기록 / AI 분석** 순서로 둘러봅니다.
 
-## 어떤 앱인가요?
+공유 앱에서는 **Python 설치, 저장소 다운로드, 개인 API 키 준비가 필요하지 않습니다.** Gemini와 저장소 연결은 앱 관리자가 설정합니다.
+앱 자체에 별도 회원가입이나 개인별 정원 기능은 없으며, 초대된 팀원이 **하나의 정원과 기록을 함께 사용**합니다.
+등록한 메모·사진·분석은 같은 앱의 다른 팀원도 볼 수 있습니다.
 
-식물 사진 한 장뿐 아니라 **언제 물을 줬고, 어떤 관리를 했고, 이후 어떻게 달라졌는지**를 함께 남기는 앱입니다.
-누적한 기록과 관리 결과를 다음 제안에 반영하는 식물 관리 파트너를 목표로 합니다.
+실제 식물이 없다면 **AI 비교 → 예시 사례**로 시작할 수 있습니다. 등록·기록 시험용 자료에는 이름과 메모에 `[테스트]` 및 실제 관찰이 아님을 표시하세요.
+AI 요청은 버튼을 눌렀을 때만 발생하며 공유 앱의 Gemini 프로젝트 한도를 함께 사용합니다.
+읽기·화면 이동·관리 기록 저장은 Gemini를 호출하지 않습니다.
 
-| 사용자의 질문 | 현재 할 수 있는 일 | 다음에 만들 기능 |
-|---|---|---|
-| 이 식물은 어디서 어떻게 키우고 있지? | 이름·종류·장소·처음 상태·사진 등록 | 환경 정보를 분석에 반영 |
-| 마지막으로 물 준 날이 언제였지? | 마지막 물주기와 관리 타임라인 조회 | 상황에 맞는 다음 관리 제안 |
-| 관리한 뒤 상태가 나아졌을까? | AI 제안에 실제 실행·경과를 연결하고 다음 분석에 반영 | 실제 식물로 반복 사용·비교 평가 |
+**[팀원 테스트 순서와 피드백 양식](docs/TEAM_TESTING.md)**에서 그대로 따라 해볼 수 있습니다.
 
-## 구현 범위
+![내 정원 화면 예시](docs/images/app-garden.jpg)
 
-| 기능 | 상태 | 내용 |
-|---|---|---|
-| 내 정원 | ✅ 구현 | 식물 카드, 관리·분석 건수와 식물별 상세 탭 |
-| 식물 등록 | ✅ 구현 | 식물별 기본 정보와 사진 저장 |
-| 관리 기록 | ✅ 구현 | 물주기·비료·분갈이·상태 관찰 |
-| 타임라인 | ✅ 구현 | 날짜순 기록, 마지막 물주기 조회 |
-| 데이터 보관 | ✅ 구현 | 로컬 SQLite 또는 Supabase 연결, 사진 포함 정원 전체 백업·이전 |
-| AI 입력 구성 | ✅ 구현 | 현재 질문·관리 기록 최대 30건·이전 제안 최대 10건과 실행·최근 경과·선택 사진 1장 |
-| AI 분석·관리 제안 | ✅ 연동 구현 | Gemini 호출과 결과 저장. 실제 호출은 본인 키 설정 후 확인 |
-| 제안·실행·경과 연결 | ✅ 구현 | 실제 관리와 이후 관찰을 구분해 저장하고 다음 분석 입력으로 전달 |
-| 날씨 연동 | ✅ 구현 | 선택한 도시의 실외 모델 날씨, 시각·출처 저장, 실패 시 기록으로 분석 |
-| 모바일 관리 흐름 | ✅ 웹 구현 | 상단 메뉴, 상태 기록 바로가기, 휴대폰의 한 열 화면 |
-| 기록 유무 AI 비교 | ✅ 구현 | 가상 사례/내 기록, 수동 호출 2회, 동일 입력 비교와 평가·JSON 다운로드 |
-| 로그인·모바일 출시 | ⏳ 검토 | 웹 시제품을 사용해본 뒤 범위 결정 |
+*사진 없는 식물은 예시 일러스트로 표시합니다. 식물 상세에는 한눈에 보기·관리 기록·AI 분석 탭이 있습니다.*
 
-**등록·기록은 키 없이 실행할 수 있습니다.** AI 분석은 Gemini의 Free Tier 프로젝트 키로 시작합니다.
-프로젝트에 결제를 연결하면 과금될 수 있으므로 무료 구간 여부를 확인하세요.
-날씨는 추가 키 없이 Open-Meteo의 비상업 무료 API를 사용합니다. [지역 날씨 안내](docs/WEATHER.md)
+## 현재 할 수 있는 일
 
-## 빠른 시작
+| 기능 | 사용 흐름 |
+|---|---|
+| 식물 등록 | 이름·종류·키우는 장소·처음 상태·선택 사진 저장 |
+| 관리 기록 | 물주기·비료·분갈이·상태 관찰, 사진과 날짜별 타임라인 |
+| AI 분석 | 현재 질문·선택 사진·최근 관리 기록·이전 제안과 경과를 Gemini에 전달 |
+| 읽기 쉬운 안내 | 새싹의 짧은 안내와 확인 카드 최대 3개, 나머지 확인 사항·관리 조건·한계·전체 원문 펼쳐보기 |
+| 관리 결과 연결 | AI 제안에 실제 실행 1건과 이후 관찰 여러 건을 연결해 다음 분석에 참고 |
+| 지역 날씨 | 순천을 포함한 도시 선택, 실외 모델 날씨를 수동 확인하고 선택적으로 분석에 포함 |
+| AI 비교 | 같은 현재 상태·사진에서 과거 기록만 제외/포함해 두 답변을 평가하고 내려받기 |
+| 기록 보관 | 내 PC의 SQLite 또는 Supabase 팀 정원, 사진 포함 전체 정원 ZIP 백업 |
 
-Python **3.12**와 Git을 준비한 뒤, Windows PowerShell에서 차례대로 실행하세요.
+관리 기록은 모델을 새로 학습시키는 데이터가 아니라 **다음 요청의 참고 문맥**으로 전달합니다.
+날씨는 도시 대표 좌표의 실외 추정치이며 실제 실내 환경이나 흙 수분을 측정한 값이 아닙니다.
+사진·기록으로 확인하지 못한 사항은 직접 확인한 뒤 관리해야 합니다.
+
+아직 남은 작업은 실제 식물로 반복 사용하기, AI 제안 평가, 팀원 사용성 점검입니다.
+개인별 계정·정원 분리, 자동 알림, 앱스토어 출시는 이후 범위이며 현재 앱은 모바일 웹입니다.
+유사 서비스의 마스코트·기록·날씨 기능과 [우리의 참고 방향](docs/COMPETITORS.md)을 정리했습니다.
+
+## 내 PC에서 실행
+
+이 부분은 **코드를 수정하거나 별도의 로컬 정원을 만들 사람**을 위한 안내입니다.
+로컬 정원은 공유 앱의 팀 정원과 자동 동기화되지 않습니다.
+
+Python **3.12**와 Git을 준비한 뒤 Windows PowerShell에서 실행하세요.
 
 ```powershell
 git clone https://github.com/Mhoyoung/plant-care-ai.git
 cd plant-care-ai
-py -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-브라우저에서 <http://localhost:8501>을 엽니다. 종료는 터미널에서 `Ctrl+C`를 누릅니다.
-`py`가 없다면 가상환경을 만드는 줄에서 `python -m venv .venv`를 사용하세요.
+브라우저에서 <http://localhost:8501>을 엽니다. 종료는 터미널에서 `Ctrl+C`입니다.
+`py`가 없다면 Python 3.12의 `python --version`을 확인하고 `python -m venv .venv`를 사용하세요.
+Git 없이 시작하려면 **Code → Download ZIP**으로 받고 압축을 푼 `app.py` 폴더에서 가상환경 생성부터 실행합니다.
+macOS·Linux, 데이터 위치와 백업은 [상세 실행 안내](docs/RUNNING.md)에 있습니다.
 
-Git 없이 시작하려면 GitHub의 **Code → Download ZIP**으로 내려받고, 압축을 푼 `app.py` 폴더에서 가상환경 생성부터 실행하면 됩니다.
-macOS·Linux 실행법, 테스트와 데이터 백업은 [상세 실행 안내](docs/RUNNING.md)에 있습니다.
+**식물 등록·관리 기록은 API 키 없이 사용할 수 있습니다.** 내 PC에서 AI를 쓰려면 [Gemini 설정](docs/AI_SETUP.md)에 따라 로컬 키를 준비합니다.
+공유 앱의 서버용 키를 팀원에게 배포하지 않습니다. 로컬 테스트에 원격 팀 정원을 연결하려면 관리자가 먼저 저장소 설정과 사용 범위를 확인해야 합니다.
 
-AI를 사용하려면 [Gemini 설정 안내](docs/AI_SETUP.md)에 따라 `.streamlit/secrets.toml`에 키를 입력합니다.
-비밀키·개인 기록·사진은 GitHub 업로드 대상에서 제외합니다.
+## 테스트와 확인 범위
 
-### 처음 확인할 것
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
 
-1. `몬스테라 A`를 등록합니다.
-2. 물주기 기록과 상태 메모를 저장합니다.
-3. 상태 관찰을 추가하고 이전 기록과 비교한 경과를 남깁니다.
-4. 앱을 종료했다가 다시 켜서 식물과 기록이 유지되는지 확인합니다.
+2026-10-12 Python 3.12 환경에서 **테스트 56개가 통과**했습니다.
+임시 데이터와 모의 API로 실행하므로 실제 정원에 테스트 기록을 추가하거나 Gemini를 호출하지 않습니다.
 
-AI를 설정했다면 **AI 분석 → 다음 관리 제안 → 관리 기록 남기기**에서 실제로 한 관리를 저장합니다.
-이후 **이후 상태 남기기**로 사진·메모·경과를 남기면 다음 분석에 함께 전달됩니다.
-제안 하나에는 실행 기록 한 건과 이후 관찰 여러 건을 연결할 수 있습니다. [관리 흐름 안내](docs/CARE_LOOP.md)
+| 확인한 범위 | 아직 별도로 확인할 범위 |
+|---|---|
+| 등록·사진·기록 저장과 재조회, 실행·경과 연결 | 여러 날 실제 식물을 관리하며 얻은 결과 |
+| AI 입력 구성, 전송 동의, 오류·429 처리, 화면 이동 시 불필요한 호출 방지 | AI 제안의 내용 타당성과 사용자가 이해하는 정도 |
+| 원격 저장 모의 테스트, 동시 저장 충돌과 백업·복원 | 팀원들의 다양한 휴대폰·브라우저에서의 사용성 |
+| 한국 새벽의 날짜 입력·저장, 미래 기록 거부 | 장기간 사용 시 데이터 증가와 운영 비용 |
 
-## 기술 구성
+실제 공유 앱에서는 Supabase 연결과 재시작 후 기록·사진 보존, 예시 입력으로 Gemini 응답을 확인했습니다.
+이 연결 확인과 **실제 식물의 분석 품질 검증은 구분**합니다. 최신 동작·제한은 아래 문서를 참고하세요.
+
+## 구성과 문서
 
 ```mermaid
 flowchart LR
-    USER[사용자] --> UI[Streamlit 화면]
-    UI --> STORE[등록 · 기록 · 조회]
-    STORE --> DB[(로컬 SQLite)]
-    STORE --> CLOUD[(선택: Supabase 팀 정원)]
-    STORE --> PHOTO[로컬 또는 비공개 사진]
-    DB --> CONTEXT[최근 기록으로 AI 입력 구성]
-    CLOUD --> CONTEXT
+    USER[팀원 또는 로컬 사용자] --> UI[Streamlit 화면]
+    UI --> STORE[등록 · 관리 기록 · 조회]
+    STORE --> DB[(로컬 SQLite 또는 Supabase 팀 정원)]
+    STORE --> PHOTO[로컬 또는 비공개 사진 저장소]
+    DB --> CONTEXT[현재 상태와 최근 기록]
+    UI --> CONTEXT
     CONTEXT --> AI[Google Gemini API]
-    PHOTO --> AI
-    AI --> RESULT[분석 결과와 당시 입력 저장]
+    PHOTO -->|선택한 사진만| AI
+    AI --> RESULT[분석과 당시 입력 저장]
     RESULT --> DB
 ```
 
-| 구성 | 사용 기술 | 역할 |
-|---|---|---|
-| 화면 | Python · Streamlit · CSS · SVG | 내 정원, 식물 카드, 상세 탭과 입력 폼 |
-| 기록 | SQLite · 선택적 Supabase PostgreSQL · Python 표준 라이브러리 | 검증·조회와 팀 정원 영구 저장 |
-| 사진 | Pillow | 사진 검증, 크기 조정, 메타데이터 제거 |
-| AI | Gemini Interactions REST · Python 표준 라이브러리 | 사진·기록 분석, 구조화된 결과, 수동 호출 |
-| 검증 | unittest · Streamlit AppTest | 저장·재조회와 화면 동작 확인 |
-
-Python 3.12.14, Streamlit 1.65.0, Pillow 12.3.0 환경에서 테스트 **54개가 통과**했습니다.
-AI 테스트는 모의 API 응답으로 실행하며 실제 Gemini 요청이나 비용을 발생시키지 않습니다.
-[테스트 실행 방법](docs/RUNNING.md#테스트)
-
-## 저장소 구조
-
-```text
-app.py                        # Streamlit 화면
-assets/                       # 정원 스타일과 식물 일러스트
-plant_care/
-  ui.py                       # 식물 카드·요약·타임라인 표시
-  storage.py                  # SQLite 저장·조회
-  cloud_store.py              # Supabase 버전 비교 저장·비공개 사진
-  store_factory.py            # 로컬 또는 팀원용 저장소 선택
-  snapshot.py                 # 정원 스냅샷과 사진 포함 전체 백업
-  data_ui.py                  # 백업 준비·내려받기·기존 정원 이전
-  media.py                    # 사진 검증·저장
-  ai_context.py               # 최근 기록을 AI 입력으로 구성
-  gemini.py                   # Gemini 요청·응답 검증·오류 처리
-  ai_ui.py                    # 분석 폼과 저장 결과 표시
-  care_ui.py                  # 제안 실행·경과 기록과 연결 화면
-  weather.py                  # 지역 실외 날씨 요청·수치·시각 검증
-  weather_ui.py               # 지역 설정과 날씨 표시
-  constants.py                # 관리 종류와 경과 값
-tests/                        # 저장소·화면 테스트
-docs/
-  RUNNING.md                  # 실행·테스트·데이터·백업
-  ROADMAP.md                  # 개발 순서·예상 기간
-  DEVELOPMENT.md              # 혼자 쓰는 Issue·PR 작업 흐름
-  AI_SETUP.md                 # 무료 구간·키 설정·분석 사용법
-  CARE_LOOP.md                # 제안·실행·경과 연결 사용법
-  WEATHER.md                  # 지역 날씨 설정·전송·저장·한계
-  CLOUD_STORAGE.md            # 외부 저장소 설정·백업·팀원 사용
-  images/                     # 실제 앱 화면
-.github/                      # Issue·PR 작성 양식
-requirements.txt              # 필요한 외부 라이브러리
-supabase/setup.sql            # 비공개 저장 구조·버전 비교 RPC
-.gitignore                    # 개인 데이터·비밀키 제외
-```
-
-## 데이터와 사용 범위
-
-- 기본 로컬 모드에서는 `data/` 폴더에 기록과 사진을 저장하며 GitHub 업로드에서 제외합니다.
-- Supabase 모드를 설정하면 하나의 팀 정원을 외부 DB·비공개 사진 저장소에 보관합니다. 임시 SQLite는 검증·조회용이며 원본 저장소는 Supabase입니다.
-- 식물별 JSON에는 사진 파일이 없습니다. **기록 보관과 백업**에서 준비하는 전체 정원 ZIP에는 사진도 포함됩니다.
-- 팀원 접근은 Streamlit 비공개 초대로 제한합니다. 앱 자체의 개인별 정원·접근 역할은 아직 구현하지 않았습니다.
-- AI 분석 시 선택한 정보가 Google에 전달됩니다. Free Tier의 입력·출력은 제품 개선에 사용될 수 있습니다. [설정·데이터 안내](docs/AI_SETUP.md)
-- 외부 저장소 연결 실패 시 로컬로 자동 전환하지 않습니다. 동시 수정은 뒤의 저장을 거부해 먼저 저장한 기록을 유지합니다.
-- Supabase 무료 프로젝트는 활동 부족 시 일시정지될 수 있으며 별도 백업이 필요합니다. [설정과 검증 범위](docs/CLOUD_STORAGE.md)
-
-사진 제한과 저장 위치 변경은 [상세 실행 안내](docs/RUNNING.md#데이터와-사진)에 있습니다.
-GitHub 업로드와 다른 사람이 접속할 수 있는 서비스 배포는 별도 작업입니다.
-
-## Issue · PR
-
-**Issue는 앞으로 할 일, PR은 실제 바꾼 내용과 확인 결과**를 남기는 공간으로 사용합니다.
-
-| 변경 규모 | 추천 방식 |
+| 위치 | 역할 |
 |---|---|
-| 오타·짧은 설명 수정 | 커밋으로 기록 |
-| 기능 추가·버그 수정 | Issue에 목표와 완료 기준 작성 → 작업 브랜치 → PR → 확인 후 병합 |
-| AI·DB·저장 방식 변경 | PR에 입력·출력 변화, 검증 결과, 기존 기록에 미치는 영향 작성 |
+| `app.py`, `assets/` | 정원·등록·상세 화면, CSS와 식물 일러스트 |
+| `plant_care/storage.py`, `cloud_store.py`, `store_factory.py` | 기록 검증과 로컬/원격 저장 |
+| `plant_care/media.py`, `snapshot.py`, `data_ui.py` | 사진 처리와 전체 정원 백업·이전 |
+| `plant_care/ai_context.py`, `gemini.py`, `ai_ui.py` | AI 입력, 요청·오류 처리, 분석 화면 |
+| `plant_care/insight_ui.py`, `care_ui.py` | 새싹 안내·확인 카드, 제안·실행·경과 연결 |
+| `plant_care/comparison.py`, `comparison_ui.py` | 정원 DB와 분리된 AI 비교 실험 |
+| `plant_care/weather.py`, `weather_ui.py`, `time_utils.py` | 지역 날씨와 한국 기준 기록 날짜 |
+| `tests/`, `.github/` | 자동 테스트와 Issue·PR 양식 |
+| `requirements.txt`, `supabase/setup.sql` | 외부 라이브러리 목록과 원격 저장소 초기 설정 |
 
-혼자 확인하고 병합해도 됩니다. 다른 사람의 승인을 필수로 요구하지 않습니다.
-Issue에는 **기능 작업·버그 보고** 양식을, PR에는 **변경·이유·검증** 양식을 준비했습니다.
-브랜치 명령과 예시는 [개발 안내](docs/DEVELOPMENT.md)를 참고하세요.
+| 필요한 안내 | 문서 |
+|---|---|
+| 팀원 사용·테스트·문제 제보 | [TEAM_TESTING](docs/TEAM_TESTING.md) |
+| 설치·실행·테스트·로컬 데이터 | [RUNNING](docs/RUNNING.md) |
+| AI 키·한도·전송 정보 | [AI_SETUP](docs/AI_SETUP.md) |
+| 제안 → 실행 → 이후 관찰 | [CARE_LOOP](docs/CARE_LOOP.md) |
+| 같은 상황의 기록 유무 비교 | [AI_COMPARISON](docs/AI_COMPARISON.md) |
+| 지역 날씨 | [WEATHER](docs/WEATHER.md) |
+| 원격 저장소·백업·팀 정원 | [CLOUD_STORAGE](docs/CLOUD_STORAGE.md) |
+| 모바일 화면·유사 앱 참고 | [MOBILE_UX](docs/MOBILE_UX.md) · [COMPETITORS](docs/COMPETITORS.md) |
+| 남은 계획·개발 작업 방식 | [ROADMAP](docs/ROADMAP.md) · [DEVELOPMENT](docs/DEVELOPMENT.md) |
 
-## 다음 개발
+## 데이터와 문제 발생 시
 
-1. **기록 기능 익히기:** 직접 등록하고 기록을 남겨보기
-2. **AI 연결 확인:** Gemini 키 설정 후 실제 분석 결과·입력 기록·사진을 확인하기
-3. **관리 흐름 검증:** 구현한 제안·실행·경과 연결을 실제 식물로 반복 사용하기
-4. **날씨와 시연:** 지역 날씨를 포함해 분석하고, 기록 유무에 따른 제안 비교하기
+- 내 PC의 기본 기록·사진은 `data/`에 저장합니다. 공유 앱은 Supabase DB와 비공개 사진 저장소를 사용합니다.
+- 식물별 JSON에는 사진 파일이 없습니다. 메뉴의 **기록 보관과 백업 → 사진 포함 전체 백업 준비**에서 전체 ZIP을 내려받으세요.
+- AI 비교 결과는 브라우저 세션에만 남고 정원 전체 백업에 포함되지 않습니다. **비교 기록 내려받기**로 따로 보관하세요.
+- 외부 저장소 연결 실패 시 로컬로 자동 전환하지 않습니다. 저장 결과가 불확실하면 새로고침해 기록이 있는지 먼저 확인하세요.
+- AI 전송 안내를 체크하면 선택한 사진·식물 정보·관리 기록 등이 Google로 전달됩니다. 무료 구간의 데이터 정책과 실제 한도는 [AI 안내](docs/AI_SETUP.md)를 확인하세요.
+- 키·개인 사진·기록·백업은 GitHub 업로드 대상에서 제외합니다. Issue에도 비밀키나 개인정보가 보이는 화면을 올리지 마세요.
 
-하루 1–2시간씩 배우면서 진행한다면 발표 가능한 웹 시제품까지 **약 4–8주**를 예상합니다.
-범위·진행 속도에 따라 달라지며 모바일 출시는 별도 일정입니다. [상세 개발 계획](docs/ROADMAP.md)
+접속·저장·429 문제의 대응은 [팀원 안내](docs/TEAM_TESTING.md#문제가-생기면)에 있습니다.
+**[Issue](https://github.com/Mhoyoung/plant-care-ai/issues)**에는 문제와 재현 순서를, **[PR](https://github.com/Mhoyoung/plant-care-ai/pulls?q=is%3Apr)**에는 변경과 검증 결과를 남깁니다.
+GitHub에 보고하는 팀원은 저장소 접근 권한이 필요합니다. 앱 사용을 위해 GitHub에 코드를 올릴 필요는 없습니다.
 
-## 참고
+## 다음 작업
 
-- 기술 문서: [Streamlit](https://docs.streamlit.io/) · [Python SQLite](https://docs.python.org/3/library/sqlite3.html)
-- 작업 양식: [GitHub Issue·PR 템플릿 안내](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/about-issue-and-pull-request-templates)
-- 문서 구성 참고: [Wave 바람길](https://github.com/Willow33426/wave-windpath) — 소개·구현 범위·구조·작업 기록의 배치 방식을 참고했습니다.
+1. 세 가상 사례의 AI 답변을 평가하고 잘못된 추정·모호한 행동 조건을 정리합니다.
+2. 팀원이 휴대폰에서 등록·기록·안내 확인을 해보고 막히는 지점을 남깁니다.
+3. 실제 식물을 확보해 여러 날 기록하며, 제안·실행·경과와 다음 분석을 확인합니다.
+4. 문제 수정과 발표 시연을 준비한 뒤 개인별 서비스·모바일 출시 범위를 결정합니다.
+
+문서 구성은 [Wave 바람길](https://github.com/Willow33426/wave-windpath)의 소개·구현 범위·작업 기록 배치를 참고했습니다.
+기술 참고: [Streamlit](https://docs.streamlit.io/) · [Python SQLite](https://docs.python.org/3/library/sqlite3.html).

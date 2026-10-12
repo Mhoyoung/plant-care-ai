@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from .constants import CARE_TYPES, OUTCOMES
+from .time_utils import today_in_seoul
 
 MODES = ["일반 기록", "AI 제안 실행", "실행 후 경과"]
 RESULT_LABELS = {"unrecorded": "아직 모르겠어요", "improved": "좋아졌어요",
@@ -23,7 +24,7 @@ def change_care_mode(plant_id):
     mode = st.session_state[f"care_mode_{plant_id}"]
     st.session_state["care_kind"] = None if mode == MODES[1] else ("observation" if mode == MODES[2] else "watering")
     st.session_state["care_notes"] = ""
-    st.session_state["care_date"] = date.today()
+    st.session_state["care_date"] = today_in_seoul()
     st.session_state["care_outcome"] = "unrecorded"
 
 
@@ -104,7 +105,10 @@ def care_form(store, plant_id):
                                 index=None if mode == MODES[1] else 0, disabled=mode == MODES[2],
                                 placeholder="실제로 한 관리를 선택하세요")
         with right:
-            occurred_on = st.date_input("기록 날짜", value="today", min_value=earliest, max_value=date.today(), key="care_date")
+            today = today_in_seoul()
+            if st.session_state.get("care_date") is None:
+                st.session_state["care_date"] = today
+            occurred_on = st.date_input("기록 날짜", value=None, min_value=earliest, max_value=today, key="care_date")
         outcome = "unrecorded"
         if mode != MODES[1]:
             outcome = st.selectbox("관리 후 관찰한 상태" if mode == MODES[2] else "이전 기록과 비교한 상태",

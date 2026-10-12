@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 import json
 from zoneinfo import ZoneInfo
+from .time_utils import today_in_seoul
 
 from .constants import CARE_TYPES, OUTCOMES
 from .media import save_photo
@@ -176,7 +177,7 @@ class PlantStore:
             log_date = date.fromisoformat(str(occurred_on))
         except (TypeError, ValueError) as error:
             raise ValueError("날짜를 올바르게 입력해 주세요.") from error
-        if log_date > date.today():
+        if log_date > today_in_seoul():
             raise ValueError("오늘까지의 관리 기록만 저장할 수 있어요.")
         photo_path = None
         try:

@@ -1,5 +1,9 @@
 # 실행·테스트·데이터 안내
 
+이 문서는 내 PC에서 코드를 실행하는 개발자용입니다.
+공유 앱만 사용하는 팀원은 설치·개인 API 키 없이 [팀원 안내](TEAM_TESTING.md)를 따라 접속하세요.
+로컬 기본 정원과 공유 앱의 팀 정원은 자동 동기화되지 않습니다.
+
 ## 준비
 
 - Python 3.12 권장. Python 3.12.14, Streamlit 1.65.0, Pillow 12.3.0에서 검증했습니다.
@@ -18,7 +22,7 @@ cd plant-care-ai
 `app.py`가 있는 폴더에서 터미널을 열고 실행합니다.
 
 ```powershell
-py -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
@@ -68,16 +72,18 @@ data/
 사진은 JPG, PNG, WEBP를 지원합니다. 파일당 10MB, 2,500만 화소 이하로 제한하고,
 긴 변을 최대 1,600픽셀로 줄인 JPEG로 저장합니다. GPS 등 원본 메타데이터는 저장하지 않습니다.
 
-JSON 다운로드에는 사진 내용이 포함되지 않습니다. 전체 백업은 앱을 종료한 뒤 `data/` 폴더를 복사하세요.
+JSON 다운로드에는 사진 내용이 포함되지 않습니다. 앱의 전체 정원 ZIP은 사진도 포함합니다.
+로컬 모드에서 폴더로 백업하려면 앱을 종료한 뒤 `data/` 폴더를 복사하세요.
 JSON 형식은 `schema_version: 2`이며, 기존 식물·관리 기록·분석과 함께 `ai_suggestions`를 포함합니다.
 선택한 도시 ID는 `weather_region`, 분석 당시 날씨는 분석 입력의 `outdoor_weather`에 포함됩니다. [날씨 안내](WEATHER.md)
 앱 시작 시 기존 DB에 제안 테이블과 관리 기록의 연결 필드를 추가합니다. 이전 분석의 원문·당시 입력과 기존 기록은 유지합니다.
 기존 관리 기록을 임의로 제안의 실행으로 연결하지 않습니다. 업데이트 전에는 앱을 종료하고 `data/`를 복사해 두세요.
 저장 위치를 바꾸려면 실행 전에 `PLANT_CARE_DATA_DIR` 환경변수에 폴더 경로를 설정하세요.
 
-현재 구성은 한 사람이 자기 PC에서 쓰는 시제품입니다. 로그인과 사용자별 권한은 아직 없습니다.
-클라우드에서 여러 사람에게 공유할 단계에서는 DB와 사진을 영구 저장소로 옮기고 사용자별 접근을 구현해야 합니다.
-호스팅 환경의 임시 디스크에만 저장하면 재시작이나 재배포 때 기록을 잃을 수 있습니다.
+로컬 모드는 자기 PC에 별도의 정원을 보관합니다. 공유 앱은 Supabase DB·비공개 사진 저장소를 사용하며
+Streamlit의 초대된 계정으로 접근을 제한합니다. 앱 자체의 개인별 정원·역할 분리는 아직 없습니다.
+공유 서버에 로컬 모드로 배포하면 임시 디스크의 기록은 재시작·재배포 후 보관이 보장되지 않습니다.
+관리 기록의 오늘 날짜와 제안 날짜는 한국 시간(Asia/Seoul)을 기준으로 합니다.
 
 ## 코드 구조
 
@@ -93,6 +99,16 @@ plant_care/
   gemini.py                Gemini REST 요청과 응답 검증
   ai_ui.py                 분석 폼과 결과 화면
   care_ui.py               AI 제안 실행과 이후 관찰 연결
+  insight_ui.py            새싹 안내·확인 카드·전체 분석 표시
+  comparison.py            기록 제외/포함 비교 실험
+  comparison_ui.py         비교 준비·호출·평가·다운로드 화면
+  cloud_store.py           Supabase 팀 정원·비공개 사진
+  store_factory.py         저장소 선택
+  snapshot.py              전체 정원 ZIP 백업·복원
+  data_ui.py               백업·이전 화면
+  weather.py               지역 실외 모델 날씨
+  weather_ui.py            도시 설정과 날씨 표시
+  time_utils.py            한국 기준 오늘 날짜
 tests/                     저장소와 화면 동작 검증
 requirements.txt           필요한 외부 라이브러리
 docs/ROADMAP.md             단계별 개발 계획
