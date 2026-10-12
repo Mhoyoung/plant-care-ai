@@ -52,7 +52,8 @@ def suggestion_card(store, suggestion, prefix):
                         if log["notes"]:
                             st.write(log["notes"])
                         if log["photo_path"]:
-                            st.image(str(store.photo_path(log["photo_path"])), width=260)
+                            from .ui import display_photo
+                            display_photo(store, log['photo_path'], width=260)
             else:
                 st.caption("이후 경과 미확인 · 변화를 관찰한 뒤 남겨 주세요.")
             label, mode = "이후 상태 남기기", MODES[2]
@@ -122,7 +123,10 @@ def care_form(store, plant_id):
                           link_type=("execution" if mode == MODES[1] else "outcome") if suggestion else None)
         except ValueError as error:
             st.error(str(error))
-        except (OSError, sqlite3.Error):
+        except OSError as error:
+            from .cloud_store import CloudError
+            st.error(str(error) if isinstance(error, CloudError) else '기록을 저장하지 못했어요. 저장소 상태를 확인해 주세요.')
+        except sqlite3.Error:
             st.error("기록을 저장하지 못했어요. 저장 폴더와 디스크 공간을 확인해 주세요.")
         else:
             st.session_state["_notice"] = "관리 기록을 저장했어요." if not suggestion else "AI 제안과 연결해 기록을 저장했어요."

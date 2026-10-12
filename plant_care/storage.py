@@ -24,6 +24,8 @@ def _text(value: str, label: str, maximum: int, required: bool = False) -> str:
 
 
 class PlantStore:
+    backend = 'local'
+
     def __init__(self, data_root: Path | str):
         self.data_root = Path(data_root).resolve()
         self.data_root.mkdir(parents=True, exist_ok=True)
@@ -120,12 +122,18 @@ class PlantStore:
         if relative:
             self.photo_path(relative).unlink(missing_ok=True)
 
+    def read_photo(self, relative: str) -> bytes:
+        return self.photo_path(relative).read_bytes()
+
+    def _save_photo(self, photo: bytes | None) -> str | None:
+        return save_photo(photo, self.data_root)
+
     def add_plant(self, name: str, species: str = "", location: str = "", notes: str = "", photo: bytes | None = None) -> int:
         name = _text(name, "식물 이름", 100, required=True)
         species = _text(species, "종류", 100)
         location = _text(location, "장소", 200)
         notes = _text(notes, "메모", 3000)
-        photo_path = save_photo(photo, self.data_root)
+        photo_path = self._save_photo(photo)
         try:
             with self._connection() as connection:
                 cursor = connection.execute(
@@ -175,7 +183,7 @@ class PlantStore:
             with self._connection() as connection:
                 if suggestion_id is not None:
                     self._validate_link(connection, plant_id, suggestion_id, link_type, log_date)
-                photo_path = save_photo(photo, self.data_root)
+                photo_path = self._save_photo(photo)
                 cursor = connection.execute(
                     "INSERT INTO care_logs(plant_id, kind, occurred_on, notes, outcome, photo_path, created_at, suggestion_id, link_type) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -233,7 +241,7 @@ class PlantStore:
                      usage: dict, photo: bytes | None = None) -> int:
         self.get_plant(plant_id)
         values = [json.dumps(value, ensure_ascii=False) for value in (context, result, usage)]
-        photo_path = save_photo(photo, self.data_root)
+        photo_path = self._save_photo(photo)
         try:
             with self._connection() as connection:
                 cursor = connection.execute(

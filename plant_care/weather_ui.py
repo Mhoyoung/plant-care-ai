@@ -4,6 +4,7 @@ import sqlite3
 from zoneinfo import ZoneInfo
 import streamlit as st
 from .weather import REGIONS, WeatherError, fetch_weather
+from .cloud_store import CloudError
 
 def show_weather(snapshot):
     if snapshot.get('status') != 'available':
@@ -33,6 +34,8 @@ def region_settings(store, plant_id):
         if saved:
             try:
                 store.set_weather_region(plant_id, chosen)
+            except CloudError as error:
+                st.error(str(error))
             except (ValueError, OSError, sqlite3.Error):
                 st.error('지역을 저장하지 못했어요. 다시 시도해 주세요.')
             else:

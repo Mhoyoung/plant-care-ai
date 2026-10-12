@@ -21,7 +21,7 @@ def click_button(app, label):
 
 class AppTests(unittest.TestCase):
     def test_suggestion_execution_observation_and_next_analysis_are_connected(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
                 patch("plant_care.ai_ui.api_key", return_value="local-test-key"), \
                 patch("plant_care.ai_ui.analyze", return_value=(RESULT, {})) as api:
             store = PlantStore(folder)
@@ -65,7 +65,7 @@ class AppTests(unittest.TestCase):
             api.assert_called_once()
 
     def test_garden_navigation_preserves_photo_records_and_never_calls_ai(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
                 patch("plant_care.ai_ui.analyze") as api:
             store = PlantStore(folder)
             plant = store.add_plant("사진 있는 식물", photo=test_photo_bytes())
@@ -84,7 +84,7 @@ class AppTests(unittest.TestCase):
             api.assert_not_called()
 
     def test_ai_requires_consent_saves_once_and_survives_relaunch(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
                 patch("plant_care.ai_ui.api_key", return_value="local-test-key"), \
                 patch("plant_care.ai_ui.analyze", return_value=(RESULT, {"total_tokens": 100})) as api:
             store = PlantStore(folder)
@@ -109,7 +109,7 @@ class AppTests(unittest.TestCase):
             api.assert_called_once()
 
     def test_missing_api_key_disables_analysis(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
                 patch("plant_care.ai_ui.api_key", return_value=""), patch("plant_care.ai_ui.analyze") as api:
             PlantStore(folder).add_plant("몬스테라")
             app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
@@ -119,7 +119,7 @@ class AppTests(unittest.TestCase):
             api.assert_not_called()
 
     def test_failed_api_does_not_store_analysis(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
                 patch("plant_care.ai_ui.api_key", return_value="test-key"), \
                 patch("plant_care.ai_ui.analyze", side_effect=AnalysisError("무료 한도 초과")) as api:
             store = PlantStore(folder)
@@ -135,7 +135,7 @@ class AppTests(unittest.TestCase):
             api.assert_called_once()
 
     def test_registration_recording_and_relaunch(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}):
             app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
             self.assertEqual(len(app.exception), 0)
             app.text_input(key="plant_name").set_value("테스트 몬스테라")
@@ -159,7 +159,7 @@ class AppTests(unittest.TestCase):
             self.assertEqual(len(PlantStore(folder).list_logs(1)), 2)
 
     def test_blank_registration_shows_error_without_creating_record(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder}):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}):
             app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
             click_button(app, "식물 등록")
             self.assertEqual(len(app.exception), 0)

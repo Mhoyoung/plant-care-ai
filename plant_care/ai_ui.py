@@ -8,7 +8,8 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from .gemini import AnalysisError, MODEL, analysis_context, analyze
-from .ui import escape
+from .ui import escape, display_photo
+from .cloud_store import CloudError
 from .care_ui import suggestion_card
 from .weather import REGIONS, WeatherError, fetch_weather, unavailable_weather
 from .weather_ui import region_settings, show_weather
@@ -61,7 +62,7 @@ def render_analysis(store, plant):
         else:
             try:
                 image = photo.getvalue() if photo is not None else (
-                    store.photo_path(plant["photo_path"]).read_bytes() if use_registered and plant["photo_path"] else None
+                    store.read_photo(plant["photo_path"]) if use_registered and plant["photo_path"] else None
                 )
                 weather = None
                 if include_weather and region:
@@ -120,6 +121,6 @@ def render_analysis(store, plant):
                 if previous:
                     st.json(previous)
                 if analysis["photo_path"]:
-                    st.image(str(store.photo_path(analysis["photo_path"])), width=320)
+                    display_photo(store, analysis['photo_path'], width=320)
                 st.caption(f"참고 기록 {len(analysis['input']['recent_care_logs'])}건 · 모델 {analysis['model']} · "
                            f"응답에 포함된 전체 토큰: {analysis['usage'].get('total_tokens', '정보 없음')}")

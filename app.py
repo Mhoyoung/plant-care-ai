@@ -5,7 +5,9 @@ from pathlib import Path
 import sqlite3
 import streamlit as st
 from plant_care.constants import CARE_TYPES, OUTCOMES
-from plant_care.storage import PlantStore
+from plant_care.store_factory import create_store
+from plant_care.cloud_store import CloudError
+from plant_care.data_ui import data_tools
 from plant_care.ai_ui import render_analysis
 from plant_care.care_ui import care_form, open_care, suggestion_card
 from plant_care import ui
@@ -14,8 +16,18 @@ APP_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.environ.get("PLANT_CARE_DATA_DIR", str(APP_ROOT / "data")))
 st.set_page_config(page_title="내 식물 기록 · 내 정원", page_icon="🌿", layout="wide")
 ui.style()
-store = PlantStore(DATA_ROOT)
-plants = store.list_plants()
+try:
+    settings = st.secrets.to_dict()
+except (FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
+    settings = {}
+try:
+    store = create_store(DATA_ROOT, settings)
+    plants = store.list_plants()
+except (CloudError, OSError, sqlite3.Error) as error:
+    st.error(str(error) if isinstance(error, CloudError) else '기록 저장소에 연결하지 못했어요.')
+    if st.button('저장소 다시 연결'):
+        st.rerun()
+    st.stop()
 plant_by_id = {plant["id"]: plant for plant in plants}
 if "_select_after_save" in st.session_state:
     st.session_state["selected_plant"] = st.session_state.pop("_select_after_save")
@@ -28,6 +40,7 @@ with st.sidebar:
     selected_id = st.selectbox("둘러보기", options=[-1, 0, *plant_by_id],
         format_func=lambda value: "내 정원" if value == -1 else ("＋ 새 식물 등록" if value == 0 else plant_by_id[value]["name"]), key="selected_plant")
     st.caption(f"함께 키우는 식물 {len(plants)}개")
+    data_tools(store)
     st.html('<div class="sidebar-footer">PLANT JOURNAL<br>오늘의 작은 변화를 남겨보세요.</div>')
 if notice := st.session_state.pop("_notice", None):
     st.success(notice)
@@ -48,6 +61,8 @@ def register_plant():
         try:
             new_id = store.add_plant(name=name, species=species, location=location, notes=notes, photo=photo.getvalue() if photo is not None else None)
         except ValueError as error:
+            st.error(str(error))
+        except CloudError as error:
             st.error(str(error))
         except (OSError, sqlite3.Error):
             st.error("식물을 저장하지 못했어요. 저장 폴더와 디스크 공간을 확인해 주세요.")
@@ -126,7 +141,7 @@ def plant_detail(plant):
     with ai:
         render_analysis(store, plant)
     st.divider()
-    st.download_button("이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="기록을 JSON 파일로 저장합니다. 사진 원본은 data/photos 폴더에 별도로 있습니다.")
+    st.download_button("이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 왼쪽 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
 
 if selected_id == -1:
     garden()
