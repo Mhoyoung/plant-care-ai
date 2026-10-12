@@ -110,7 +110,7 @@ flowchart LR
 | AI | Gemini Interactions REST · Python 표준 라이브러리 | 사진·기록 분석, 구조화된 결과, 수동 호출 |
 | 검증 | unittest · Streamlit AppTest | 저장·재조회와 화면 동작 확인 |
 
-Python 3.12.14, Streamlit 1.65.0, Pillow 12.3.0 환경에서 테스트 **52개가 통과**했습니다.
+Python 3.12.14, Streamlit 1.65.0, Pillow 12.3.0 환경에서 테스트 **54개가 통과**했습니다.
 AI 테스트는 모의 API 응답으로 실행하며 실제 Gemini 요청이나 비용을 발생시키지 않습니다.
 [테스트 실행 방법](docs/RUNNING.md#테스트)
 

@@ -23,6 +23,40 @@ def response_bytes(result=RESULT, status="completed"):
 
 
 class GeminiTests(unittest.TestCase):
+    def test_429_codes_are_distinguished_without_exposing_raw_message_or_retrying(self):
+        for code, text in (("rate_limit_exceeded", "분당·초당"), ("quota_exceeded", "일일"), ("too_many_requests", "집중")):
+            payload = json.dumps({"error": {"code": code, "message": "private key and project information"}}).encode()
+            error = HTTPError("https://example.invalid", 429, "private detail", {"Retry-After": "45"}, BytesIO(payload))
+            with self.subTest(code=code), patch("plant_care.gemini.urlopen", side_effect=error) as http:
+                with self.assertRaises(AnalysisError) as raised:
+                    analyze("test-secret-key", {})
+                safe = raised.exception
+                self.assertEqual(safe.http_status, 429)
+                self.assertEqual(safe.error_code, code)
+                self.assertEqual(safe.retry_after_seconds, 45)
+                self.assertIn(text, str(safe))
+                self.assertNotIn("private", str(safe))
+                self.assertNotIn("test-secret-key", str(safe))
+                self.assertEqual("45초" in str(safe), code != "quota_exceeded")
+                self.assertTrue(error.fp.closed)
+                http.assert_called_once()
+
+    def test_unknown_malformed_oversized_429_does_not_guess_daily_or_free_limit(self):
+        for payload in (b"invalid", b"[]", b'null', b'{"error":{"code":429,"message":"private secret"}}',
+                        b'{"error":{"code":"private secret"}}', b'{"error":{"code":[]}}', b'x' * 65_537):
+            for header in ("private secret", "99999999999", "-1", "86401", "Wed, 21 Oct 2026 07:28:00 GMT"):
+                error = HTTPError("https://example.invalid", 429, "private detail", {"Retry-After": header}, BytesIO(payload))
+                with self.subTest(payload=payload[:30], header=header), patch("plant_care.gemini.urlopen", side_effect=error) as http:
+                    with self.assertRaises(AnalysisError) as raised:
+                        analyze("test-secret-key", {})
+                    self.assertIsNone(raised.exception.error_code)
+                    self.assertIsNone(raised.exception.retry_after_seconds)
+                    self.assertIn("세부 원인은 확인되지", str(raised.exception))
+                    self.assertNotIn("일일 할당량에 도달", str(raised.exception))
+                    self.assertNotIn("무료", str(raised.exception))
+                    self.assertNotIn("private", str(raised.exception))
+                    http.assert_called_once()
+
     def test_missing_key_never_calls_network(self):
         with patch("plant_care.gemini.urlopen") as http, self.assertRaises(AnalysisError):
             analyze("", {})
