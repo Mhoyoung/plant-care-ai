@@ -25,7 +25,7 @@ def data_tools(store):
             st.caption('백업 준비 버튼을 누른 시점의 파일입니다. 이후 기록은 다시 백업해 주세요.')
         if store.backend == 'supabase' and not store.list_plants():
             st.caption('외부 정원이 비어 있을 때 기존 앱에서 내려받은 전체 백업을 가져올 수 있어요.')
-            uploaded = st.file_uploader('기존 정원 전체 백업', type=['zip'], key='restore_garden_file')
+            uploaded = st.file_uploader('기존 정원 전체 백업', type=['zip'], max_upload_size=100, key='restore_garden_file')
             consent = st.checkbox('백업의 식물 기록과 사진을 연결한 Supabase 저장소로 옮깁니다.', key='restore_garden_consent')
             if st.button('기존 정원 가져오기', disabled=uploaded is None, key='restore_garden'):
                 if not consent:
