@@ -32,10 +32,18 @@ def hero():
 
 def plant_photo(store, plant, detail=False):
     with st.container(key=f"photo_{'detail' if detail else 'card'}_{plant['id']}"):
-        path = store.photo_path(plant["photo_path"]) if plant["photo_path"] else ROOT / "assets" / "botanical.svg"
-        st.image(str(path), width="stretch")
+        if plant['photo_path']:
+            display_photo(store, plant['photo_path'], width='stretch')
+        else:
+            st.image(str(ROOT / 'assets' / 'botanical.svg'), width='stretch')
         if not plant["photo_path"]:
             st.caption("등록 사진이 없는 식물의 예시 일러스트")
+
+def display_photo(store, relative, width):
+    try:
+        st.image(store.read_photo(relative), width=width)
+    except (OSError, ValueError):
+        st.warning('사진을 불러오지 못했어요. 기록은 유지되며 저장소 연결 후 다시 확인할 수 있어요.')
 
 def watering_label(value):
     if not value:
@@ -84,4 +92,4 @@ def timeline(store, logs, care_types, outcomes, limit=None):
                 label = "AI 제안 실행" if log["link_type"] == "execution" else "AI 관리 후 경과"
                 st.caption(f"{label} · {log['suggestion_text']}")
             if log["photo_path"]:
-                st.image(str(store.photo_path(log["photo_path"])), width=320)
+                display_photo(store, log['photo_path'], width=320)

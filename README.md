@@ -9,8 +9,9 @@
 
 **[빠른 시작](#빠른-시작)** · **[개발 계획](docs/ROADMAP.md)** · **[작업 목록](https://github.com/Mhoyoung/plant-care-ai/issues)** · **[변경 기록 · PR](https://github.com/Mhoyoung/plant-care-ai/pulls?q=is%3Apr)**
 
-- **현재 상태:** 개인 PC에서 실행하는 Python 웹 시제품. 식물·관리 기록, Gemini 분석과 제안·실행·경과 연결을 구현했습니다.
+- **현재 상태:** 팀원들과 테스트하는 Python 웹 시제품. 식물·관리 기록, Gemini 분석, 제안·실행·경과와 지역 날씨를 연결했습니다.
 - **사용 준비:** AI 분석은 본인의 Gemini 키가 필요합니다. [무료 구간 설정](docs/AI_SETUP.md)
+- **팀원 저장소:** Supabase와 비공개 사진 저장소를 연결할 수 있습니다. [기존 정원 백업·연결 안내](docs/CLOUD_STORAGE.md)
 - **다음 목표:** 실제 식물로 날씨·관리 흐름 검증, 기록 유무에 따른 제안 비교와 AI 파트너 마스코트.
 - **개발 방식:** 혼자 개발하며 기능 단위로 작게 구현하고 직접 사용해봅니다.
 
@@ -37,7 +38,7 @@
 | 식물 등록 | ✅ 구현 | 식물별 기본 정보와 사진 저장 |
 | 관리 기록 | ✅ 구현 | 물주기·비료·분갈이·상태 관찰 |
 | 타임라인 | ✅ 구현 | 날짜순 기록, 마지막 물주기 조회 |
-| 데이터 보관 | ✅ 구현 | SQLite 저장, 재실행 후 유지, JSON 다운로드 |
+| 데이터 보관 | ✅ 구현 | 로컬 SQLite 또는 Supabase 연결, 사진 포함 정원 전체 백업·이전 |
 | AI 입력 구성 | ✅ 구현 | 현재 질문·관리 기록 최대 30건·이전 제안 최대 10건과 실행·최근 경과·선택 사진 1장 |
 | AI 분석·관리 제안 | ✅ 연동 구현 | Gemini 호출과 결과 저장. 실제 호출은 본인 키 설정 후 확인 |
 | 제안·실행·경과 연결 | ✅ 구현 | 실제 관리와 이후 관찰을 구분해 저장하고 다음 분석 입력으로 전달 |
@@ -86,9 +87,11 @@ AI를 설정했다면 **AI 분석 → 다음 관리 제안 → 관리 기록 남
 flowchart LR
     USER[사용자] --> UI[Streamlit 화면]
     UI --> STORE[등록 · 기록 · 조회]
-    STORE --> DB[(SQLite)]
-    STORE --> PHOTO[사진 파일]
+    STORE --> DB[(로컬 SQLite)]
+    STORE --> CLOUD[(선택: Supabase 팀 정원)]
+    STORE --> PHOTO[로컬 또는 비공개 사진]
     DB --> CONTEXT[최근 기록으로 AI 입력 구성]
+    CLOUD --> CONTEXT
     CONTEXT --> AI[Google Gemini API]
     PHOTO --> AI
     AI --> RESULT[분석 결과와 당시 입력 저장]
@@ -98,12 +101,12 @@ flowchart LR
 | 구성 | 사용 기술 | 역할 |
 |---|---|---|
 | 화면 | Python · Streamlit · CSS · SVG | 내 정원, 식물 카드, 상세 탭과 입력 폼 |
-| 기록 | SQLite · Python 표준 라이브러리 | 식물과 관리 기록 저장 |
+| 기록 | SQLite · 선택적 Supabase PostgreSQL · Python 표준 라이브러리 | 검증·조회와 팀 정원 영구 저장 |
 | 사진 | Pillow | 사진 검증, 크기 조정, 메타데이터 제거 |
 | AI | Gemini Interactions REST · Python 표준 라이브러리 | 사진·기록 분석, 구조화된 결과, 수동 호출 |
 | 검증 | unittest · Streamlit AppTest | 저장·재조회와 화면 동작 확인 |
 
-Python 3.12.14, Streamlit 1.65.0, Pillow 12.3.0 환경에서 테스트 **37개가 통과**했습니다.
+Python 3.12.14, Streamlit 1.65.0, Pillow 12.3.0 환경에서 테스트 **46개가 통과**했습니다.
 AI 테스트는 모의 API 응답으로 실행하며 실제 Gemini 요청이나 비용을 발생시키지 않습니다.
 [테스트 실행 방법](docs/RUNNING.md#테스트)
 
@@ -115,6 +118,10 @@ assets/                       # 정원 스타일과 식물 일러스트
 plant_care/
   ui.py                       # 식물 카드·요약·타임라인 표시
   storage.py                  # SQLite 저장·조회
+  cloud_store.py              # Supabase 버전 비교 저장·비공개 사진
+  store_factory.py            # 로컬 또는 팀원용 저장소 선택
+  snapshot.py                 # 정원 스냅샷과 사진 포함 전체 백업
+  data_ui.py                  # 백업 준비·내려받기·기존 정원 이전
   media.py                    # 사진 검증·저장
   ai_context.py               # 최근 기록을 AI 입력으로 구성
   gemini.py                   # Gemini 요청·응답 검증·오류 처리
@@ -131,19 +138,23 @@ docs/
   AI_SETUP.md                 # 무료 구간·키 설정·분석 사용법
   CARE_LOOP.md                # 제안·실행·경과 연결 사용법
   WEATHER.md                  # 지역 날씨 설정·전송·저장·한계
+  CLOUD_STORAGE.md            # 외부 저장소 설정·백업·팀원 사용
   images/                     # 실제 앱 화면
 .github/                      # Issue·PR 작성 양식
 requirements.txt              # 필요한 외부 라이브러리
+supabase/setup.sql            # 비공개 저장 구조·버전 비교 RPC
 .gitignore                    # 개인 데이터·비밀키 제외
 ```
 
 ## 데이터와 사용 범위
 
-- 기록과 사진은 내 PC의 `data/` 폴더에 저장합니다. `.gitignore`로 GitHub 업로드에서 제외합니다.
-- JSON 다운로드에는 사진 파일이 포함되지 않습니다. 전체 백업은 앱 종료 후 `data/` 폴더를 복사합니다.
-- 현재 앱은 한 사람이 자기 PC에서 사용하는 시제품입니다. 로그인과 사용자별 접근 권한은 아직 없습니다.
+- 기본 로컬 모드에서는 `data/` 폴더에 기록과 사진을 저장하며 GitHub 업로드에서 제외합니다.
+- Supabase 모드를 설정하면 하나의 팀 정원을 외부 DB·비공개 사진 저장소에 보관합니다. 임시 SQLite는 검증·조회용이며 원본 저장소는 Supabase입니다.
+- 식물별 JSON에는 사진 파일이 없습니다. **기록 보관과 백업**에서 준비하는 전체 정원 ZIP에는 사진도 포함됩니다.
+- 팀원 접근은 Streamlit 비공개 초대로 제한합니다. 앱 자체의 개인별 정원·접근 역할은 아직 구현하지 않았습니다.
 - AI 분석 시 선택한 정보가 Google에 전달됩니다. Free Tier의 입력·출력은 제품 개선에 사용될 수 있습니다. [설정·데이터 안내](docs/AI_SETUP.md)
-- 여러 사람에게 배포할 때는 사용자 구분과 영구 저장소를 먼저 구현해야 합니다.
+- 외부 저장소 연결 실패 시 로컬로 자동 전환하지 않습니다. 동시 수정은 뒤의 저장을 거부해 먼저 저장한 기록을 유지합니다.
+- Supabase 무료 프로젝트는 활동 부족 시 일시정지될 수 있으며 별도 백업이 필요합니다. [설정과 검증 범위](docs/CLOUD_STORAGE.md)
 
 사진 제한과 저장 위치 변경은 [상세 실행 안내](docs/RUNNING.md#데이터와-사진)에 있습니다.
 GitHub 업로드와 다른 사람이 접속할 수 있는 서비스 배포는 별도 작업입니다.

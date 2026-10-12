@@ -101,7 +101,7 @@ class WeatherTests(unittest.TestCase):
 
 class WeatherAppTests(unittest.TestCase):
     def test_manual_preview_and_analysis_persist_the_exact_weather_without_extra_calls(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder, 'STORAGE_BACKEND': 'local'}), \
                 patch('plant_care.ai_ui.api_key', return_value='test-key'), \
                 patch('plant_care.ai_ui.analyze', return_value=(RESULT, {})) as ai, \
                 patch('plant_care.ai_ui.fetch_weather') as weather, \
@@ -142,7 +142,7 @@ class WeatherAppTests(unittest.TestCase):
             ai.assert_called_once()
 
     def test_weather_failure_continues_analysis_with_explicit_unavailable_snapshot(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder, 'STORAGE_BACKEND': 'local'}), \
                 patch('plant_care.ai_ui.api_key', return_value='test-key'), \
                 patch('plant_care.ai_ui.analyze', return_value=(RESULT, {})) as ai, \
                 patch('plant_care.ai_ui.fetch_weather', side_effect=WeatherError('날씨 연결 실패')) as weather:
@@ -162,7 +162,7 @@ class WeatherAppTests(unittest.TestCase):
             self.assertNotIn('temperature_c', store.list_analyses(plant)[0]['input']['outdoor_weather'])
 
     def test_opt_out_and_no_region_never_call_weather(self):
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder}), \
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder, 'STORAGE_BACKEND': 'local'}), \
                 patch('plant_care.ai_ui.api_key', return_value='test-key'), \
                 patch('plant_care.ai_ui.analyze', return_value=(RESULT, {})) as ai, \
                 patch('plant_care.ai_ui.fetch_weather') as weather:
