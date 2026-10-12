@@ -13,6 +13,17 @@ def style():
 def navigate(plant_id):
     st.session_state["selected_plant"] = plant_id
 
+def open_tab(plant_id, label):
+    navigate(plant_id)
+    st.session_state[f"plant_tabs_{plant_id}"] = label
+
+def start_record(plant_id, suggestion_id=None, mode="일반 기록"):
+    from .care_ui import open_care
+    navigate(plant_id)
+    open_care(plant_id, suggestion_id, mode)
+    if mode == "일반 기록":
+        st.session_state["care_kind"] = "observation"
+
 def heading(eyebrow, title, subtitle=""):
     st.html(f'<div class="page-heading"><span class="eyebrow">{escape(eyebrow)}</span>'
             f'<h1>{escape(title)}</h1><p>{escape(subtitle)}</p></div>')
@@ -24,8 +35,8 @@ def hero():
         with left:
             st.html(f'<div class="hero-copy">'
             f'<span class="eyebrow">MY LITTLE GARDEN · {today:%Y.%m.%d}</span>'
-            '<h1>작은 관찰이 쌓여,<br>더 푸른 일상이 돼요.</h1>'
-            '<p>물 준 날부터 새로 돋은 잎까지.<br>내 식물의 이야기를 한곳에 모아보세요.</p>'
+            '<h1>오늘의 작은 관찰,<br>내 식물의 다음 한 걸음.</h1>'
+            '<p>사진과 관리 기록을 쌓고,<br>이 식물에 맞는 다음 행동을 함께 찾아요.</p>'
             '<span class="hero-foot">GROW A LITTLE, EVERY DAY</span></div>')
         with right:
             st.image(str(ROOT / "assets" / "botanical.svg"), width="stretch")
@@ -64,6 +75,7 @@ def plant_card(store, plant, logs, analyses):
                 f'<div class="care-chip">{escape(watering_label(store.last_watered(plant["id"])))}</div>'
                 f'<div class="card-counts">관리 기록 {len(logs)}건 <span>·</span> AI 관찰 {len(analyses)}건</div></div>')
         st.button("식물 살펴보기 →", key=f"open_plant_{plant['id']}", width="stretch", on_click=navigate, args=(plant["id"],))
+        st.button("오늘 상태 남기기", key=f"record_plant_{plant['id']}", width="stretch", on_click=start_record, args=(plant['id'],))
 
 def detail_hero(store, plant):
     with st.container(key="plant_detail_hero"):
