@@ -27,7 +27,7 @@
 AI 요청은 버튼을 눌렀을 때만 발생하며 공유 앱의 Gemini 프로젝트 한도를 함께 사용합니다.
 읽기·화면 이동·관리 기록 저장은 Gemini를 호출하지 않습니다.
 
-**[팀원 테스트 순서와 피드백 양식](docs/TEAM_TESTING.md)**에서 그대로 따라 해볼 수 있습니다.
+[팀원 테스트 순서와 피드백 양식](docs/TEAM_TESTING.md)에서 그대로 따라 해볼 수 있습니다.
 
 ![내 정원 화면 예시](docs/images/app-garden.jpg)
 
@@ -146,7 +146,7 @@ flowchart LR
 - 키·개인 사진·기록·백업은 GitHub 업로드 대상에서 제외합니다. Issue에도 비밀키나 개인정보가 보이는 화면을 올리지 마세요.
 
 접속·저장·429 문제의 대응은 [팀원 안내](docs/TEAM_TESTING.md#문제가-생기면)에 있습니다.
-**[Issue](https://github.com/Mhoyoung/plant-care-ai/issues)**에는 문제와 재현 순서를, **[PR](https://github.com/Mhoyoung/plant-care-ai/pulls?q=is%3Apr)**에는 변경과 검증 결과를 남깁니다.
+[Issue](https://github.com/Mhoyoung/plant-care-ai/issues)에는 문제와 재현 순서를, [PR](https://github.com/Mhoyoung/plant-care-ai/pulls?q=is%3Apr)에는 변경과 검증 결과를 남깁니다.
 GitHub에 보고하는 팀원은 저장소 접근 권한이 필요합니다. 앱 사용을 위해 GitHub에 코드를 올릴 필요는 없습니다.
 
 ## 다음 작업
