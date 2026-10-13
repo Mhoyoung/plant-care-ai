@@ -72,7 +72,6 @@ class ComparisonTests(unittest.TestCase):
             pid = store.add_plant('보존할 식물', photo=test_photo_bytes())
             original = store.export_plant(pid)
             app = AppTest.from_file(str(APP)).run(timeout=15)
-            app.button(key='nav_-2').click().run()
             app.button(key='comparison_prepare').click().run()
             self.assertEqual(len(app.exception), 0)
             self.assertTrue(app.button(key='compare_baseline').disabled)
@@ -84,8 +83,8 @@ class ComparisonTests(unittest.TestCase):
             app.button(key='compare_history').click().run(timeout=15)
             self.assertEqual(api.call_count, 2)
             self.assertEqual(len(app.exception), 0)
-            app.button(key='nav_-1').click().run()
-            app.button(key='nav_-2').click().run()
+            app.button(key='garden_add').click().run()
+            app.selectbox(key='selected_plant').select(pid).run()
             self.assertEqual(len(app.session_state['comparison_trial']['results']), 2)
             api.assert_called()
             self.assertEqual(api.call_count, 2)
@@ -97,7 +96,6 @@ class ComparisonTests(unittest.TestCase):
                 patch('plant_care.comparison_ui.api_key', return_value='test-key'), \
                 patch('plant_care.comparison.analyze') as api:
             app = AppTest.from_file(str(APP)).run(timeout=15)
-            app.button(key='nav_-2').click().run()
             app.button(key='comparison_prepare').click().run()
             app.checkbox(key='comparison_consent').check().run()
             old_id = app.session_state['comparison_trial']['id']

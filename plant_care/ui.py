@@ -11,7 +11,13 @@ def style():
     st.html(f"<style>{(ROOT / 'assets' / 'garden.css').read_text(encoding='utf-8')}</style>")
 
 def navigate(plant_id):
-    st.session_state["selected_plant"] = plant_id
+    st.session_state["selected_plant"] = plant_id if plant_id > 0 else -1
+    st.session_state["_main_tab_target"] = {0: "새 식물", -2: "AI 비교"}.get(plant_id, "내 정원")
+    st.session_state["_main_nav_generation"] = st.session_state.get("_main_nav_generation", 0) + 1
+
+def select_garden_plant():
+    st.session_state["_main_tab_target"] = "내 정원"
+    st.session_state["_main_nav_generation"] = st.session_state.get("_main_nav_generation", 0) + 1
 
 def open_tab(plant_id, label):
     navigate(plant_id)
