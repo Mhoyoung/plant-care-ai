@@ -20,6 +20,39 @@ def click_button(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_comparison_question_survives_garden_actions_without_ai_calls_or_saves(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as api, patch("plant_care.comparison.analyze") as comparison_api:
+            store = PlantStore(folder)
+            plant = store.add_plant("이미 등록한 식물")
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.radio(key="comparison_mode").set_value("내 식물 기록").run()
+            app.text_area(key="comparison_question").set_value("작성 중인 비교 질문")
+            app.button(key=f"open_plant_{plant}").click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(app.text_area(key="comparison_question").value, "작성 중인 비교 질문")
+            self.assertEqual(len(store.list_plants()), 1)
+            self.assertEqual(store.list_logs(plant), [])
+            api.assert_not_called()
+            comparison_api.assert_not_called()
+
+    def test_registration_opens_new_plant_and_preserves_prepared_comparison(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as api, patch("plant_care.comparison.analyze") as comparison_api:
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.button(key="comparison_prepare").click().run()
+            trial_id = app.session_state['comparison_trial']['id']
+            app.text_input(key="plant_name").set_value("새로 등록한 식물")
+            click_button(app, "식물 등록")
+            self.assertEqual(len(app.exception), 0)
+            plant = PlantStore(folder).list_plants()[0]
+            self.assertEqual(app.selectbox(key="selected_plant").value, plant['id'])
+            self.assertEqual(app.session_state['_main_tab_target'], '내 정원')
+            self.assertEqual(app.session_state['comparison_trial']['id'], trial_id)
+            self.assertEqual(app.text_input(key='plant_name').value, '')
+            api.assert_not_called()
+            comparison_api.assert_not_called()
+
     def test_suggestion_execution_observation_and_next_analysis_are_connected(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
                 patch("plant_care.ai_ui.api_key", return_value="local-test-key"), \
@@ -75,11 +108,11 @@ class AppTests(unittest.TestCase):
             app.button(key=f"open_plant_{plant}").click().run()
             self.assertEqual(app.selectbox(key="selected_plant").value, plant)
             self.assertEqual(len(app.exception), 0)
-            self.assertEqual([tab.label for tab in app.tabs], ["한눈에 보기", "관리 기록", "AI 분석"])
+            self.assertEqual([tab.label for tab in app.tabs], ["내 정원", "한눈에 보기", "관리 기록", "AI 분석", "새 식물", "AI 비교"])
             app.button(key="back_to_garden").click().run()
             self.assertEqual(app.selectbox(key="selected_plant").value, -1)
             app.button(key="garden_add").click().run()
-            self.assertEqual(app.selectbox(key="selected_plant").value, 0)
+            self.assertEqual(app.session_state['_main_tab_target'], '새 식물')
             self.assertTrue(store.photo_path(store.get_plant(plant)["photo_path"]).is_file())
             api.assert_not_called()
 

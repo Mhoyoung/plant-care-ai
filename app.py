@@ -37,15 +37,16 @@ except (CloudError, OSError, sqlite3.Error) as error:
     st.stop()
 plant_by_id = {plant["id"]: plant for plant in plants}
 if "_select_after_save" in st.session_state:
-    st.session_state["selected_plant"] = st.session_state.pop("_select_after_save")
+    ui.navigate(st.session_state.pop("_select_after_save"))
 if "selected_plant" not in st.session_state:
-    st.session_state["selected_plant"] = -1 if plants else 0
-if st.session_state["selected_plant"] not in [-2, -1, 0, *plant_by_id]:
-    st.session_state["selected_plant"] = -1 if plants else 0
+    st.session_state["selected_plant"] = -1
+if st.session_state["selected_plant"] not in [-1, *plant_by_id]:
+    st.session_state["selected_plant"] = -1
 with st.sidebar:
     st.html('<div class="eyebrow">A LITTLE GREEN, EVERY DAY</div><div class="sidebar-brand">내 식물 기록</div><div class="sidebar-note">함께 자라는 나의 작은 정원</div>')
-    selected_id = st.selectbox("둘러보기", options=[-1, 0, -2, *plant_by_id],
-        format_func=lambda value: {-1: "내 정원", 0: "＋ 새 식물 등록", -2: "AI 비교 실험"}.get(value, plant_by_id.get(value, {}).get("name", "")), key="selected_plant")
+    selected_id = st.selectbox("정원의 식물", options=[-1, *plant_by_id],
+        format_func=lambda value: "전체 정원" if value == -1 else plant_by_id[value]["name"],
+        key="selected_plant", on_change=ui.select_garden_plant)
     st.caption(f"함께 키우는 식물 {len(plants)}개")
     if store.backend == 'supabase':
         st.button('팀 기록 새로고침', key='refresh_team_records', on_click=refresh_team_records, width='stretch')
@@ -54,13 +55,14 @@ with st.sidebar:
     st.html('<div class="sidebar-footer">PLANT JOURNAL<br>오늘의 작은 변화를 남겨보세요.</div>')
 with st.container(key="top_nav"):
     st.html('<div class="mobile-brand">🌿 내 식물 기록 <span>작은 관찰, 함께 자라는 하루</span></div>')
-    nav = st.columns(3, gap="small")
-    for column, target, label in zip(nav, [-1, 0, -2], ["내 정원", "새 식물", "AI 비교"]):
-        column.button(label, key=f"nav_{target}", width="stretch", type="primary" if selected_id == target else "secondary", on_click=ui.navigate, args=(target,))
 if notice := st.session_state.pop("_notice", None):
     st.success(notice)
 
 def register_plant():
+    if st.session_state.pop("_reset_registration", False):
+        for key in ("plant_name", "plant_species", "plant_location", "plant_notes"):
+            st.session_state[key] = ""
+        st.session_state["_registration_photo_generation"] = st.session_state.get("_registration_photo_generation", 0) + 1
     ui.heading("NEW COMPANION", "새로운 초록을 들여요", "이름과 사진을 남기면, 이 식물만의 기록이 시작돼요.")
     with st.form("register_plant"):
         left, right = st.columns(2)
@@ -70,7 +72,8 @@ def register_plant():
             species = st.text_input("종류", max_chars=100, placeholder="알고 있는 경우 입력", key="plant_species")
         location = st.text_input("키우는 장소", max_chars=200, placeholder="예: 거실 창가", key="plant_location")
         notes = st.text_area("처음 상태와 메모", max_chars=3000, placeholder="처음 만난 날의 모습이나 기억하고 싶은 내용을 적어주세요.", key="plant_notes")
-        photo = st.file_uploader("식물 사진", type=["jpg", "jpeg", "png", "webp"], key="plant_photo")
+        photo = st.file_uploader("식물 사진", type=["jpg", "jpeg", "png", "webp"],
+                                 key=f"plant_photo_{st.session_state.get('_registration_photo_generation', 0)}")
         register = st.form_submit_button("식물 등록", type="primary", width="stretch")
     if register:
         try:
@@ -83,6 +86,7 @@ def register_plant():
             st.error("식물을 저장하지 못했어요. 저장 폴더와 디스크 공간을 확인해 주세요.")
         else:
             st.session_state["_select_after_save"] = new_id
+            st.session_state["_reset_registration"] = True
             st.session_state["_notice"] = "식물을 등록했어요. 첫 관리 기록을 남겨보세요."
             st.rerun()
 
@@ -179,11 +183,18 @@ def plant_detail(plant):
     st.divider()
     st.download_button("이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
 
-if selected_id == -2:
-    comparison_screen(store, plants, on_refresh=refresh_team_records)
-elif selected_id == -1:
-    garden()
-elif selected_id == 0:
+default_view = st.session_state.get("_main_tab_target", "내 정원" if plants else "새 식물")
+generation = st.session_state.get("_main_nav_generation", 0)
+# 세 화면은 외부 AI 호출 없이 준비한다. 상단 탭 전환은 서버 재실행을 요청하지 않는다.
+garden_view, register_view, comparison_view = st.tabs(
+    ["내 정원", "새 식물", "AI 비교"], default=default_view,
+    key=f"main_views_{generation}", on_change="ignore")
+with garden_view:
+    if selected_id == -1:
+        garden()
+    else:
+        plant_detail(plant_by_id[selected_id])
+with register_view:
     register_plant()
-else:
-    plant_detail(plant_by_id[selected_id])
+with comparison_view:
+    comparison_screen(store, plants, on_refresh=refresh_team_records)
