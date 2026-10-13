@@ -1,0 +1,51 @@
+<div id="garden-navigation" class="garden-navigation">
+  <button type="button" class="garden-menu-button" aria-label="정원 메뉴 열기" aria-controls="garden-sidebar" hidden>
+    <span aria-hidden="true">☰</span>
+    <span>메뉴</span>
+  </button>
+  <div class="mobile-brand">🌿 내 식물 기록 <span>작은 관찰, 함께 자라는 하루</span></div>
+</div>
+<script>
+(() => {
+  // Only this checked-in, static HTML enables JavaScript; no user data is inserted.
+  const app = document.querySelector('.stApp');
+  const header = document.getElementById('garden-navigation');
+  if (!app || !header) return;
+  window.gardenNavigationCleanup?.();
+  const button = header.querySelector('button');
+  let expanded = false;
+  let returnFocus = false;
+  const cleanup = () => {
+    observer.disconnect();
+    app.classList.remove('garden-menu-ready');
+  };
+  const sync = () => {
+    if (!header.isConnected) { cleanup(); return; }
+    const opener = app.querySelector('[data-testid="stExpandSidebarButton"]');
+    const sidebar = app.querySelector('[data-testid="stSidebar"]');
+    if (sidebar) sidebar.id = 'garden-sidebar';
+    const isExpanded = sidebar?.getAttribute('aria-expanded') === 'true';
+    const menuHadFocus = document.activeElement === button;
+    button.hidden = !opener;
+    app.classList.toggle('garden-menu-ready', Boolean(opener));
+    if (isExpanded && !expanded && menuHadFocus) {
+      app.querySelector('[data-testid="stSidebarCollapseButton"] button')?.focus();
+    } else if (!isExpanded && expanded && returnFocus &&
+        (document.activeElement === document.body ||
+         app.querySelector('[data-testid="stSidebarCollapseButton"]')?.contains(document.activeElement))) {
+      button.focus();
+      returnFocus = false;
+    }
+    expanded = isExpanded;
+  };
+  button.addEventListener('click', () => {
+    const opener = app.querySelector('[data-testid="stExpandSidebarButton"]');
+    if (opener) { returnFocus = true; opener.click(); }
+  });
+  // Leave Streamlit's own button and sidebar under React's ownership.
+  const observer = new MutationObserver(sync);
+  observer.observe(app, { childList: true, subtree: true });
+  window.gardenNavigationCleanup = cleanup;
+  sync();
+})();
+</script>

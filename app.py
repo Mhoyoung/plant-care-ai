@@ -54,7 +54,7 @@ with st.sidebar:
     data_tools(store, on_refresh=refresh_team_records)
     st.html('<div class="sidebar-footer">PLANT JOURNAL<br>오늘의 작은 변화를 남겨보세요.</div>')
 with st.container(key="top_nav"):
-    st.html('<div class="mobile-brand">🌿 내 식물 기록 <span>작은 관찰, 함께 자라는 하루</span></div>')
+    st.html(APP_ROOT / "assets" / "navigation.html", unsafe_allow_javascript=True)
 if notice := st.session_state.pop("_notice", None):
     st.success(notice)
 
