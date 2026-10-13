@@ -5,18 +5,26 @@
 [data-testid="stSidebarUserContent"] { padding-top:1rem; }
 [data-testid="stSidebarHeader"] { padding:12px 18px; min-height:68px; }
 [data-testid="stSidebarCollapseButton"] { opacity:1 !important; visibility:visible !important; transition:none !important; }
-[data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"] button { min-width:84px; height:44px; padding:8px 12px; gap:6px; border:1px solid #dce5d5; border-radius:12px; background:#eff3e9; color:#254632; }
+[data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"] button { min-width:72px; height:44px; padding:8px 10px; gap:8px; border:0; border-radius:10px; background:transparent; color:#49604b; }
 [data-testid="stExpandSidebarButton"]::after { content:"메뉴"; font-size:14px; font-weight:600; }
 [data-testid="stSidebarCollapseButton"] button::after { content:"닫기"; font-size:14px; font-weight:600; }
+[data-testid="stSidebarCollapseButton"] button > span { display:none; }
+[data-testid="stSidebarCollapseButton"] button::before { content:""; width:14px; height:14px; background:linear-gradient(45deg, transparent 45%, currentColor 46%, currentColor 54%, transparent 55%), linear-gradient(-45deg, transparent 45%, currentColor 46%, currentColor 54%, transparent 55%); }
 [data-testid="stExpandSidebarButton"]:hover, [data-testid="stSidebarCollapseButton"] button:hover { background:#e3ecd9; }
 [data-testid="stExpandSidebarButton"]:focus-visible, [data-testid="stSidebarCollapseButton"] button:focus-visible { outline:3px solid #527b4d; outline-offset:3px; }
 .garden-navigation { display:flex; align-items:flex-start; gap:16px; }
-.garden-menu-button { display:flex; align-items:center; justify-content:center; flex:0 0 84px; gap:6px; height:44px; padding:8px 12px; border:1px solid #dce5d5; border-radius:12px; background:#eff3e9; color:#254632; font:600 14px sans-serif; cursor:pointer; }
+.garden-menu-button { display:flex; align-items:center; justify-content:center; flex:0 0 72px; gap:8px; height:44px; padding:8px 10px; border:0; border-radius:10px; background:transparent; color:#49604b; font:600 14px sans-serif; cursor:pointer; }
+.garden-menu-icon { width:16px; height:2px; border-radius:2px; background:currentColor; box-shadow:0 -5px currentColor, 0 5px currentColor; }
 .garden-menu-button[hidden] { display:none; }
 .garden-menu-button:hover { background:#e3ecd9; }
 .garden-menu-button:focus-visible { outline:3px solid #527b4d; outline-offset:3px; }
 .garden-menu-ready [data-testid="stExpandSidebarButton"] { display:none; }
 .garden-navigation .mobile-brand { flex:1; min-width:0; }
+.garden-back-to-top { position:fixed; right:24px; bottom:calc(80px + env(safe-area-inset-bottom, 0px)); z-index:999; display:flex; align-items:center; justify-content:center; width:48px; height:48px; padding:0; border:1px solid #dce5d5; border-radius:50%; background:#fafbf6f5; color:#49604b; box-shadow:0 4px 16px #25463214; cursor:pointer; }
+.garden-back-to-top > span { font-size:23px; line-height:1; }
+.garden-back-to-top[hidden] { display:none; }
+.garden-back-to-top:hover { background:#eff3e9; box-shadow:0 5px 18px #25463220; }
+.garden-back-to-top:focus-visible { outline:3px solid #527b4d; outline-offset:3px; }
 [data-testid="stSidebar"] [data-testid="stSelectbox"] { margin-top:1.8rem; }
 [data-testid="stHeader"] { background:transparent; }
 .eyebrow { color:#758264; font-size:10px; font-weight:700; letter-spacing:2px; }
