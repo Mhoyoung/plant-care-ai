@@ -23,7 +23,7 @@ def api_key() -> str:
         return ""
 
 
-def render_analysis(store, plant):
+def render_analysis(store, plant, on_refresh=None):
     st.subheader("지금 모습, 함께 살펴볼까요?")
     st.caption("사진 한 장과 쌓아둔 기록에서 다음 관리의 실마리를 찾아보세요.")
     region = region_settings(store, plant['id'])
@@ -53,7 +53,7 @@ def render_analysis(store, plant):
         else:
             st.caption('날씨를 함께 참고하려면 위에서 지역을 저장해 주세요.')
         consent = st.checkbox("전송 안내를 확인했고, 선택한 사진과 식물·관리 기록·이전 제안 및 경과와 선택한 경우 지역 날씨를 Google로 보내 분석합니다.", key="ai_consent")
-        submit = st.form_submit_button("Gemini로 분석", type="primary", disabled=not bool(key), width="stretch")
+        submit = st.form_submit_button("Gemini로 분석", type="primary", disabled=not bool(key), width="stretch", on_click=on_refresh)
     if submit:
         if not consent:
             st.error("사진과 기록 전송 안내를 확인하고 체크해 주세요.")

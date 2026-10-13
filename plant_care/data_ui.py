@@ -7,12 +7,12 @@ from .cloud_store import CloudError
 from .snapshot import make_backup, read_backup
 
 
-def data_tools(store):
+def data_tools(store, on_refresh=None):
     with st.expander('기록 보관과 백업'):
         st.caption('기록과 사진을 외부 저장소에 보관하고 있어요.' if store.backend == 'supabase'
                    else '현재 실행 중인 서버에 기록을 보관하고 있어요. 팀원용 외부 저장소는 아직 연결되지 않았어요.')
         st.caption('전체 정원 백업에는 식물·기록·분석·지역 설정과 사진이 포함됩니다. 개인 자료이므로 공개 저장소에 올리지 마세요.')
-        if st.button('사진 포함 전체 백업 준비', key='prepare_garden_backup'):
+        if st.button('사진 포함 전체 백업 준비', key='prepare_garden_backup', on_click=on_refresh):
             try:
                 with st.spinner('정원과 사진을 백업하고 있어요…'):
                     st.session_state['garden_backup'] = make_backup(store)

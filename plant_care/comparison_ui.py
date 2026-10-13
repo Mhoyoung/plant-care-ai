@@ -11,7 +11,7 @@ from .insight_ui import render_insight
 LABELS = {"baseline": "기록 없이", "history": "기록 포함"}
 
 
-def comparison_screen(store, plants):
+def comparison_screen(store, plants, on_refresh=None):
     heading("COMPARE & LEARN", "기록이 있으면, 무엇이 달라질까요?", "같은 현재 상태에 과거 기록만 다르게 전달해 두 답변을 살펴보세요.")
     st.info("예시 사례로 지금 시작할 수 있어요. 이 실험은 기록 활용을 확인하며, 진단 정확도나 실제 식물의 회복 효과를 증명하지 않습니다.")
     with st.expander("비교 방법과 참고 자료"):
@@ -48,7 +48,8 @@ def comparison_screen(store, plants):
                     st.warning("과거 기록이 없어 두 조건에 차이가 거의 없어요. 기록을 남기거나 예시 사례로 먼저 비교해 주세요.")
             st.caption("여기서 분석한 답변은 실제 관리 제안이나 정원 기록에 추가되지 않습니다.")
         st.caption("새 비교를 준비하면 현재 화면의 이전 실험을 교체합니다. 먼저 아래에서 비교 기록을 내려받아 주세요.")
-        if st.button("새 비교 준비" if trial else "비교 준비", key="comparison_prepare", type="primary", disabled=context is None, width="stretch"):
+        if st.button("새 비교 준비" if trial else "비교 준비", key="comparison_prepare", type="primary", disabled=context is None, width="stretch",
+                     on_click=on_refresh if mode == "내 식물 기록" else None):
             try:
                 photo = prepare_photo(photo) if photo is not None else None
                 st.session_state["comparison_trial"] = new_trial(context, photo, source)

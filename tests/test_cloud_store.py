@@ -15,7 +15,7 @@ from plant_care.cloud_store import CloudError, CloudPlantStore, SupabaseClient
 from plant_care.gemini import analysis_context
 from plant_care.snapshot import dump_store, make_backup, read_backup, TABLES
 from plant_care.storage import PlantStore
-from plant_care.store_factory import create_store
+from plant_care.store_factory import create_store, discard_cached_store, CACHE_KEY
 from test_app import APP_PATH, click_button
 from test_gemini import RESULT
 from test_storage import test_photo_bytes
@@ -81,6 +81,116 @@ class CloudStoreTests(unittest.TestCase):
         store = CloudPlantStore(URL, SECRET)
         self.stores.append(store)
         return store
+
+    def cached_store(self, session, **settings):
+        store = create_store(None, {'STORAGE_BACKEND': 'supabase', 'SUPABASE_URL': URL,
+                                    'SUPABASE_SECRET_KEY': SECRET, **settings}, session=session)
+        if store not in self.stores:
+            self.stores.append(store)
+        return store
+
+    def test_quick_reruns_reuse_records_and_private_photos_only_in_same_session(self):
+        with patch('plant_care.store_factory.monotonic', return_value=10):
+            session = {}
+            first = self.cached_store(session)
+            plant = first.add_plant('사진 재사용', photo=test_photo_bytes())
+            path = first.get_plant(plant)['photo_path']
+            before = len(self.cloud.calls)
+            for _ in range(3):
+                again = self.cached_store(session)
+                self.assertIs(again, first)
+                self.assertEqual(again.read_photo(path), first.read_photo(path))
+            self.assertEqual(len(self.cloud.calls), before)
+            separate = self.cached_store({})
+            self.assertIsNot(separate, first)
+            self.assertEqual(separate.get_plant(plant)['name'], '사진 재사용')
+
+    def test_expiry_reloads_other_members_records_and_rejects_public_bucket(self):
+        session = {}
+        with patch('plant_care.store_factory.monotonic', return_value=10):
+            cached = self.cached_store(session)
+            self.store().add_plant('다른 팀원의 새 식물')
+        with patch('plant_care.store_factory.monotonic', return_value=24.9):
+            self.assertIs(self.cached_store(session), cached)
+            self.assertEqual(cached.list_plants(), [])
+        with patch('plant_care.store_factory.monotonic', return_value=25):
+            refreshed = self.cached_store(session)
+            self.assertEqual(refreshed.list_plants()[0]['name'], '다른 팀원의 새 식물')
+            self.assertFalse(Path(cached._temporary.name).exists())
+        self.cloud.bucket_public = True
+        with patch('plant_care.store_factory.monotonic', return_value=40):
+            with self.assertRaises(CloudError):
+                self.cached_store(session)
+            self.assertNotIn(CACHE_KEY, session)
+
+    def test_changed_credentials_and_explicit_refresh_never_reuse_old_store(self):
+        session = {}
+        with patch('plant_care.store_factory.monotonic', return_value=10):
+            first = self.cached_store(session)
+            second = self.cached_store(session, SUPABASE_SECRET_KEY=SECRET + '-rotated')
+            self.assertIsNot(first, second)
+            discard_cached_store(session)
+            third = self.cached_store(session)
+            self.assertIsNot(second, third)
+            with self.assertRaises(CloudError):
+                self.cached_store(session, SUPABASE_SECRET_KEY='invalid')
+            self.assertNotIn(CACHE_KEY, session)
+
+    def test_stale_cached_write_still_conflicts_and_next_run_reloads(self):
+        with patch('plant_care.store_factory.monotonic', return_value=10):
+            session = {}
+            stale = self.cached_store(session)
+            other = self.store()
+            other.add_plant('다른 팀원의 기록')
+            with self.assertRaises(CloudError):
+                self.cached_store(session).add_plant('덮어쓰면 안 됨')
+            self.assertEqual(stale.list_plants(), [])
+            refreshed = self.cached_store(session)
+            self.assertIsNot(refreshed, stale)
+            self.assertEqual(refreshed.list_plants()[0]['name'], '다른 팀원의 기록')
+            self.assertEqual(self.cloud.revision, 1)
+
+    def test_ui_navigation_avoids_reads_but_backup_and_refresh_load_latest(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder,
+                'STORAGE_BACKEND': 'supabase', 'SUPABASE_URL': URL, 'SUPABASE_SECRET_KEY': SECRET}), \
+                patch('plant_care.store_factory.monotonic', return_value=10):
+            other = self.store()
+            plant = other.add_plant('팀 식물')
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            before = len(self.cloud.calls)
+            app.button(key='nav_0').click().run()
+            app.button(key='nav_-1').click().run()
+            self.assertEqual(len(self.cloud.calls), before)
+            other.add_log(plant, 'observation', date.today(), notes='다른 팀원이 방금 남긴 기록')
+            click_button(app, '사진 포함 전체 백업 준비')
+            state, _ = read_backup(app.session_state['garden_backup'])
+            self.assertEqual(state['tables']['care_logs'][0]['notes'], '다른 팀원이 방금 남긴 기록')
+            second = other.add_plant('다른 팀원의 두 번째 식물')
+            app.button(key='nav_0').click().run()
+            app.button(key='nav_-1').click().run()
+            self.assertFalse(any(b.key == f'open_plant_{second}' for b in app.button))
+            app.button(key='refresh_team_records').click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertTrue(any(b.key == f'open_plant_{second}' for b in app.button))
+
+    def test_ai_submit_uses_fresh_team_history_before_request_and_save(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder,
+                'STORAGE_BACKEND': 'supabase', 'SUPABASE_URL': URL, 'SUPABASE_SECRET_KEY': SECRET}), \
+                patch('plant_care.store_factory.monotonic', return_value=10), \
+                patch('plant_care.ai_ui.api_key', return_value='local-test-key'), \
+                patch('plant_care.ai_ui.analyze', return_value=(RESULT, {})) as api:
+            other = self.store()
+            plant = other.add_plant('팀 식물')
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.selectbox(key='selected_plant').select(plant).run()
+            other.add_log(plant, 'observation', date.today(), notes='새로 확인한 흙 상태')
+            app.text_area(key='ai_state').set_value('현재 상태를 확인해 주세요')
+            app.checkbox(key='ai_consent').check()
+            click_button(app, 'Gemini로 분석')
+            self.assertEqual(len(app.exception), 0)
+            api.assert_called_once()
+            self.assertEqual(api.call_args.args[1]['recent_care_logs'][0]['notes'], '새로 확인한 흙 상태')
+            self.assertEqual(len(self.store().list_analyses(plant)), 1)
 
     def test_records_photos_and_full_care_loop_survive_new_server_instance(self):
         first = self.store()
