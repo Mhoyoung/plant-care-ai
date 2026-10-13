@@ -5,7 +5,7 @@ from pathlib import Path
 import sqlite3
 import streamlit as st
 from plant_care.constants import CARE_TYPES, OUTCOMES
-from plant_care.store_factory import create_store
+from plant_care.store_factory import create_store, discard_cached_store
 from plant_care.cloud_store import CloudError
 from plant_care.data_ui import data_tools
 from plant_care.ai_ui import render_analysis
@@ -18,17 +18,22 @@ APP_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.environ.get("PLANT_CARE_DATA_DIR", str(APP_ROOT / "data")))
 st.set_page_config(page_title="내 식물 기록 · 내 정원", page_icon="🌿", layout="wide", initial_sidebar_state="collapsed")
 ui.style()
+
+
+def refresh_team_records():
+    discard_cached_store(st.session_state)
+
+
 try:
     settings = st.secrets.to_dict()
 except (FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
     settings = {}
 try:
-    store = create_store(DATA_ROOT, settings)
+    store = create_store(DATA_ROOT, settings, session=st.session_state)
     plants = store.list_plants()
 except (CloudError, OSError, sqlite3.Error) as error:
     st.error(str(error) if isinstance(error, CloudError) else '기록 저장소에 연결하지 못했어요.')
-    if st.button('저장소 다시 연결'):
-        st.rerun()
+    st.button('저장소 다시 연결', on_click=refresh_team_records)
     st.stop()
 plant_by_id = {plant["id"]: plant for plant in plants}
 if "_select_after_save" in st.session_state:
@@ -42,7 +47,10 @@ with st.sidebar:
     selected_id = st.selectbox("둘러보기", options=[-1, 0, -2, *plant_by_id],
         format_func=lambda value: {-1: "내 정원", 0: "＋ 새 식물 등록", -2: "AI 비교 실험"}.get(value, plant_by_id.get(value, {}).get("name", "")), key="selected_plant")
     st.caption(f"함께 키우는 식물 {len(plants)}개")
-    data_tools(store)
+    if store.backend == 'supabase':
+        st.button('팀 기록 새로고침', key='refresh_team_records', on_click=refresh_team_records, width='stretch')
+        st.caption('다른 팀원의 최신 기록을 바로 확인하려면 눌러 주세요.')
+    data_tools(store, on_refresh=refresh_team_records)
     st.html('<div class="sidebar-footer">PLANT JOURNAL<br>오늘의 작은 변화를 남겨보세요.</div>')
 with st.container(key="top_nav"):
     st.html('<div class="mobile-brand">🌿 내 식물 기록 <span>작은 관찰, 함께 자라는 하루</span></div>')
@@ -167,12 +175,12 @@ def plant_detail(plant):
             st.caption("남겨둔 기록을 시간순으로 모았어요.")
             ui.timeline(store, logs, CARE_TYPES, OUTCOMES)
     with ai:
-        render_analysis(store, plant)
+        render_analysis(store, plant, on_refresh=refresh_team_records)
     st.divider()
     st.download_button("이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
 
 if selected_id == -2:
-    comparison_screen(store, plants)
+    comparison_screen(store, plants, on_refresh=refresh_team_records)
 elif selected_id == -1:
     garden()
 elif selected_id == 0:
