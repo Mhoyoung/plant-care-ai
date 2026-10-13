@@ -6,12 +6,17 @@
 [data-testid="stSidebarHeader"] { padding:12px 18px; min-height:68px; }
 [data-testid="stSidebarCollapseButton"] { opacity:1 !important; visibility:visible !important; transition:none !important; }
 [data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"] button { min-width:84px; height:44px; padding:8px 12px; gap:6px; border:1px solid #dce5d5; border-radius:12px; background:#eff3e9; color:#254632; }
-[data-testid="stExpandSidebarButton"] { position:fixed; top:72px; left:max(2rem, calc((100vw - 1180px) / 2 + 2rem)); }
 [data-testid="stExpandSidebarButton"]::after { content:"메뉴"; font-size:14px; font-weight:600; }
 [data-testid="stSidebarCollapseButton"] button::after { content:"닫기"; font-size:14px; font-weight:600; }
 [data-testid="stExpandSidebarButton"]:hover, [data-testid="stSidebarCollapseButton"] button:hover { background:#e3ecd9; }
 [data-testid="stExpandSidebarButton"]:focus-visible, [data-testid="stSidebarCollapseButton"] button:focus-visible { outline:3px solid #527b4d; outline-offset:3px; }
-.stApp:has([data-testid="stExpandSidebarButton"]) .st-key-top_nav { padding-left:100px; }
+.garden-navigation { display:flex; align-items:flex-start; gap:16px; }
+.garden-menu-button { display:flex; align-items:center; justify-content:center; flex:0 0 84px; gap:6px; height:44px; padding:8px 12px; border:1px solid #dce5d5; border-radius:12px; background:#eff3e9; color:#254632; font:600 14px sans-serif; cursor:pointer; }
+.garden-menu-button[hidden] { display:none; }
+.garden-menu-button:hover { background:#e3ecd9; }
+.garden-menu-button:focus-visible { outline:3px solid #527b4d; outline-offset:3px; }
+.garden-menu-ready [data-testid="stExpandSidebarButton"] { display:none; }
+.garden-navigation .mobile-brand { flex:1; min-width:0; }
 [data-testid="stSidebar"] [data-testid="stSelectbox"] { margin-top:1.8rem; }
 [data-testid="stHeader"] { background:transparent; }
 .eyebrow { color:#758264; font-size:10px; font-weight:700; letter-spacing:2px; }
@@ -110,7 +115,6 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
   .partner-label { min-height:40px; display:flex; align-items:center; padding-left:48px; }
   .insight-check { padding:15px 14px; gap:10px; }
   [data-testid="stMainBlockContainer"] { padding:4.5rem 1rem 3rem; }
-  [data-testid="stExpandSidebarButton"] { left:1rem; }
   [data-testid="stHorizontalBlock"] { flex-wrap:wrap; gap:12px; }
   [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] { width:100% !important; flex:1 1 100% !important; min-width:0 !important; }
   .st-key-top_nav [data-testid="stHorizontalBlock"], .st-key-detail_actions [data-testid="stHorizontalBlock"], .st-key-garden_stats [data-testid="stHorizontalBlock"], .st-key-detail_stats [data-testid="stHorizontalBlock"] { flex-wrap:nowrap; gap:8px; }
