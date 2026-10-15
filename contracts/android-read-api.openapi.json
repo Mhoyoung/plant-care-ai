@@ -1,0 +1,91 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Plant Care Android Read API — design draft",
+    "version": "0.1.0-draft",
+    "description": "설계 초안입니다. 아직 API 서버가 구현·배포되지 않았습니다. 초기 범위는 인증된 팀 정원의 읽기 전용 목록·상세 조회입니다. 원격 데이터 연결 전 인증과 팀 접근 제어를 구현합니다."
+  },
+  "security": [{"userBearer": []}],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "security": [],
+        "description": "프로세스 응답 확인용입니다. 외부 서비스의 정상 연결이나 AI 응답 품질을 보장하지 않습니다.",
+        "responses": {"200": {"description": "프로세스 응답", "content": {"application/json": {"schema": {"type": "object", "required": ["status"], "additionalProperties": false, "properties": {"status": {"const": "ok"}}}, "example": {"status": "ok"}}}}}
+      }
+    },
+    "/v1/plants": {
+      "get": {
+        "operationId": "listPlants",
+        "description": "사용자가 접근할 수 있는 팀 정원의 식물을 ID 오름차순으로 반환합니다.",
+        "responses": {
+          "200": {"description": "식물 요약 목록. 빈 정원은 items=[]", "content": {"application/json": {"schema": {"type": "object", "required": ["items"], "additionalProperties": false, "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PlantSummary"}}}}, "example": {"items": [{"id": 1, "name": "[테스트] API 예시 식물", "species": "몬스테라", "location": "가상 장소", "last_watered_on": null, "care_log_count": 0, "analysis_count": 0, "photo_available": false}]}}}},
+          "401": {"$ref": "#/components/responses/Unauthenticated"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    },
+    "/v1/plants/{plant_id}": {
+      "get": {
+        "operationId": "getPlant",
+        "parameters": [{"name": "plant_id", "in": "path", "required": true, "schema": {"type": "integer", "minimum": 1}}],
+        "responses": {
+          "200": {"description": "식물 상세", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PlantDetail"}, "example": {"id": 1, "name": "[테스트] API 예시 식물", "species": "몬스테라", "location": "가상 장소", "notes": "API 화면 연결용 가상 데이터이며 실제 관찰이 아닙니다.", "created_at": "2026-10-16T00:00:00Z", "last_watered_on": null, "care_log_count": 0, "analysis_count": 0, "photo_available": false}}}},
+          "401": {"$ref": "#/components/responses/Unauthenticated"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "식물을 찾을 수 없음", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}, "example": {"error": {"code": "plant_not_found", "message": "식물을 찾을 수 없습니다."}}}}},
+          "422": {"description": "양의 정수가 아닌 식물 ID", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}},
+          "503": {"$ref": "#/components/responses/Unavailable"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"userBearer": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT", "description": "검증된 사용자 토큰과 서버 측 팀 접근 확인이 필요합니다. Gemini 키·Supabase 서버용 키를 앱에 포함하지 않습니다."}},
+    "schemas": {
+      "PlantSummary": {
+        "type": "object",
+        "required": ["id", "name", "species", "location", "last_watered_on", "care_log_count", "analysis_count", "photo_available"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "integer", "minimum": 1},
+          "name": {"type": "string", "minLength": 1},
+          "species": {"type": "string"},
+          "location": {"type": "string"},
+          "last_watered_on": {"type": ["string", "null"], "format": "date", "description": "저장된 물주기 기록의 한국 기준 날짜. 기록이 없으면 null"},
+          "care_log_count": {"type": "integer", "minimum": 0},
+          "analysis_count": {"type": "integer", "minimum": 0},
+          "photo_available": {"type": "boolean"}
+        }
+      },
+      "PlantDetail": {
+        "type": "object",
+        "required": ["id", "name", "species", "location", "notes", "created_at", "last_watered_on", "care_log_count", "analysis_count", "photo_available"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "integer", "minimum": 1},
+          "name": {"type": "string", "minLength": 1},
+          "species": {"type": "string"},
+          "location": {"type": "string"},
+          "notes": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "last_watered_on": {"type": ["string", "null"], "format": "date"},
+          "care_log_count": {"type": "integer", "minimum": 0},
+          "analysis_count": {"type": "integer", "minimum": 0},
+          "photo_available": {"type": "boolean"}
+        }
+      },
+      "ApiError": {
+        "type": "object", "required": ["error"], "additionalProperties": false,
+        "properties": {"error": {"type": "object", "required": ["code", "message"], "additionalProperties": false, "properties": {"code": {"type": "string"}, "message": {"type": "string"}}}}
+      }
+    },
+    "responses": {
+      "Unauthenticated": {"description": "사용자 인증 필요", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}},
+      "Forbidden": {"description": "팀 정원 접근 권한 없음", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}},
+      "Unavailable": {"description": "저장소 연결 실패. 로컬 정원으로 자동 전환하지 않음", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}
+    }
+  }
+}

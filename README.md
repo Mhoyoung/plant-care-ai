@@ -53,6 +53,7 @@ AI 요청은 버튼을 눌렀을 때만 발생하며 공유 앱의 Gemini 프로
 
 아직 남은 작업은 실제 식물로 반복 사용하기, AI 제안 평가, 팀원 사용성 점검입니다.
 개인별 계정·정원 분리, 앱 자체 푸시, 앱스토어 출시는 이후 범위이며 현재 앱은 모바일 웹입니다.
+**12월 초 발표 목표는 Android 시험 설치 앱**입니다. 모바일 웹 테스트와 병행해 [Android 전환 준비](docs/ANDROID_PLAN.md)를 진행하며, 현재 APK와 별도 API 서버는 구현 전입니다.
 휴대폰 알림은 [캘린더 연동](docs/CARE_SCHEDULES.md)으로 시작합니다. 가져온 일정과 알림을 캘린더에서 확인하며, 앱과 자동 동기화되지 않습니다.
 유사 서비스의 마스코트·기록·날씨 기능과 [우리의 참고 방향](docs/COMPETITORS.md)을 정리했습니다.
 
@@ -131,6 +132,7 @@ flowchart LR
 |---|---|
 | 팀원 사용·테스트·문제 제보 | [TEAM_TESTING](docs/TEAM_TESTING.md) |
 | 팀 운영 규칙·역할 배정안·중간보고·간트 계획 | [PROJECT_PLAN](docs/PROJECT_PLAN.md) |
+| Android 시험 설치 앱 범위·환경·조회 API 준비 | [ANDROID_PLAN](docs/ANDROID_PLAN.md) |
 | 설치·실행·테스트·로컬 데이터 | [RUNNING](docs/RUNNING.md) |
 | AI 키·한도·전송 정보 | [AI_SETUP](docs/AI_SETUP.md) |
 | 제안 → 실행 → 이후 관찰 | [CARE_LOOP](docs/CARE_LOOP.md) |
