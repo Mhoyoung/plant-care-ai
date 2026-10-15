@@ -33,6 +33,34 @@ class ScheduleTests(unittest.TestCase):
         self.store.add_analysis(self.plant, 'mock-only', analysis_context(self.store, self.plant, '질문', False), RESULT, {})
         return self.store.list_suggestions(self.plant)[0]['id']
 
+    def test_empty_schedule_explains_next_action_and_first_form_is_not_collapsed(self):
+        with patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': self.folder.name, 'STORAGE_BACKEND': 'local'}), \
+                patch('plant_care.ai_ui.analyze') as ai:
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            app.selectbox(key='selected_plant').select(self.plant).run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertTrue(any('아직 예정된 케어 일정이 없어요' in item.value for item in app.info))
+            self.assertNotIn('＋ 새 케어 일정', [item.label for item in app.expander])
+            self.assertEqual(app.text_input(key=f'schedule_new_{self.plant}_0_title').value, '')
+            app.button(key=f'schedule_analysis_{self.plant}').click().run()
+            self.assertEqual(app.session_state[f'plant_tabs_{self.plant}'], 'AI 분석')
+            ai.assert_not_called()
+
+    def test_saved_ai_candidate_is_discoverable_inside_schedule_tab_without_auto_save(self):
+        sid = self.source()
+        with patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': self.folder.name, 'STORAGE_BACKEND': 'local'}), \
+                patch('plant_care.ai_ui.analyze') as ai:
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            app.selectbox(key='selected_plant').select(self.plant).run()
+            app.button(key=f'schedule_candidate_{sid}').click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(app.session_state[f'plant_tabs_{self.plant}'], '케어 일정')
+            self.assertEqual(app.session_state[f'schedule_draft_{self.plant}'], sid)
+            self.assertIsNone(app.date_input(key=f'schedule_new_{self.plant}_1_day').value)
+            self.assertEqual(self.store.list_schedules(), [])
+            self.assertEqual(self.store.list_logs(self.plant), [])
+            ai.assert_not_called()
+
     def test_deployment_with_cached_old_store_stops_before_read_or_write(self):
         from plant_care.cloud_store import CloudPlantStore
         with patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': self.folder.name, 'STORAGE_BACKEND': 'local'}), \
