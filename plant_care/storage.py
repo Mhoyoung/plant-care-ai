@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 import json
 from zoneinfo import ZoneInfo
+from uuid import uuid4
 from .time_utils import today_in_seoul
 
 from .constants import CARE_TYPES, OUTCOMES
@@ -78,6 +79,23 @@ class PlantStore:
                     suggestion_text TEXT NOT NULL,
                     UNIQUE(analysis_id, action_index)
                 );
+                CREATE TABLE IF NOT EXISTS care_schedules (
+                    id INTEGER PRIMARY KEY,
+                    plant_id INTEGER NOT NULL REFERENCES plants(id),
+                    title TEXT NOT NULL CHECK(length(trim(title)) > 0),
+                    kind TEXT NOT NULL CHECK(kind IN ('watering', 'fertilizing', 'repotting', 'observation')),
+                    due_on TEXT NOT NULL,
+                    due_time TEXT NOT NULL,
+                    notes TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','completed','cancelled')),
+                    completed_log_id INTEGER UNIQUE REFERENCES care_logs(id),
+                    calendar_uid TEXT NOT NULL UNIQUE,
+                    revision INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    CHECK((status = 'completed') = (completed_log_id IS NOT NULL))
+                );
+                CREATE INDEX IF NOT EXISTS schedules_due ON care_schedules(status, due_on, due_time);
             """)
             # Additive migration: old logs remain unlinked; original snapshots are unchanged.
             columns = {row['name'] for row in connection.execute('PRAGMA table_info(care_logs)')}
@@ -219,7 +237,83 @@ class PlantStore:
     def export_plant(self, plant_id: int) -> dict:
         return {"schema_version": 2, "plant": self.get_plant(plant_id), "care_logs": self.list_logs(plant_id),
                 "ai_analyses": self.list_analyses(plant_id), "ai_suggestions": self.list_suggestions(plant_id),
-                "weather_region": self.get_weather_region(plant_id)}
+                "weather_region": self.get_weather_region(plant_id), "care_schedules": self.list_schedules(plant_id)}
+
+    @staticmethod
+    def _schedule_values(title, kind, due_on, due_time, notes):
+        from datetime import time
+        title = _text(title, '할 일', 100, required=True)
+        notes = _text(notes, '일정 메모', 1000)
+        if kind not in CARE_TYPES:
+            raise ValueError('관리 종류를 선택해 주세요.')
+        try:
+            day = date.fromisoformat(str(due_on))
+            clock = time.fromisoformat(str(due_time))
+            if clock.tzinfo is not None:
+                raise ValueError
+        except (ValueError, TypeError) as error:
+            raise ValueError('일정 날짜와 시간을 확인해 주세요.') from error
+        return title, kind, day.isoformat(), clock.strftime('%H:%M'), notes
+
+    def add_schedule(self, plant_id, title, kind, due_on, due_time='09:00', notes=''):
+        self.get_plant(plant_id)
+        values = self._schedule_values(title, kind, due_on, due_time, notes)
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connection() as connection:
+            cursor = connection.execute('INSERT INTO care_schedules '
+                '(plant_id,title,kind,due_on,due_time,notes,calendar_uid,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
+                (plant_id, *values, uuid4().hex, now, now))
+            return cursor.lastrowid
+
+    def list_schedules(self, plant_id=None):
+        with self._connection() as connection:
+            query = 'SELECT s.*, p.name AS plant_name FROM care_schedules s JOIN plants p ON p.id=s.plant_id'
+            args = ()
+            if plant_id is not None:
+                query += ' WHERE s.plant_id=?'
+                args = (plant_id,)
+            return [dict(row) for row in connection.execute(query + ' ORDER BY s.due_on,s.due_time,s.id', args)]
+
+    @staticmethod
+    def _pending_schedule(connection, schedule_id):
+        row = connection.execute('SELECT * FROM care_schedules WHERE id=?', (schedule_id,)).fetchone()
+        if row is None or row['status'] != 'pending':
+            raise ValueError('이미 완료·취소했거나 찾을 수 없는 일정이에요. 새로고침해 확인해 주세요.')
+        return row
+
+    def update_schedule(self, schedule_id, title, kind, due_on, due_time, notes=''):
+        values = self._schedule_values(title, kind, due_on, due_time, notes)
+        with self._connection() as connection:
+            self._pending_schedule(connection, schedule_id)
+            connection.execute('UPDATE care_schedules SET title=?,kind=?,due_on=?,due_time=?,notes=?, '
+                'revision=revision+1,updated_at=? WHERE id=?', (*values, datetime.now(timezone.utc).isoformat(), schedule_id))
+
+    def cancel_schedule(self, schedule_id):
+        with self._connection() as connection:
+            self._pending_schedule(connection, schedule_id)
+            connection.execute("UPDATE care_schedules SET status='cancelled',revision=revision+1,updated_at=? WHERE id=?",
+                               (datetime.now(timezone.utc).isoformat(), schedule_id))
+
+    def complete_schedule(self, schedule_id, kind, occurred_on, notes):
+        # One SQLite transaction and one cloud CAS write: no orphan log or duplicate completion.
+        notes = _text(notes, '실제로 한 관리', 3000, required=True)
+        if kind not in CARE_TYPES:
+            raise ValueError('실제로 한 관리 종류를 선택해 주세요.')
+        try:
+            day = date.fromisoformat(str(occurred_on))
+        except (TypeError, ValueError) as error:
+            raise ValueError('기록 날짜를 확인해 주세요.') from error
+        if day > today_in_seoul():
+            raise ValueError('오늘까지의 실제 관리만 완료로 남길 수 있어요.')
+        now = datetime.now(timezone.utc).isoformat()
+        with self._connection() as connection:
+            row = self._pending_schedule(connection, schedule_id)
+            cursor = connection.execute('INSERT INTO care_logs(plant_id,kind,occurred_on,notes,created_at) VALUES (?,?,?,?,?)',
+                (row['plant_id'], kind, day.isoformat(), notes, now))
+            log_id = cursor.lastrowid
+            connection.execute("UPDATE care_schedules SET status='completed',completed_log_id=?,revision=revision+1,updated_at=? WHERE id=?",
+                               (log_id, now, schedule_id))
+            return log_id
 
     def get_weather_region(self, plant_id: int) -> str | None:
         self.get_plant(plant_id)

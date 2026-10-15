@@ -13,6 +13,7 @@ from plant_care.comparison_ui import comparison_screen
 from plant_care.insight_ui import partner_note
 from plant_care.care_ui import care_form, open_care, suggestion_card
 from plant_care import ui
+from plant_care.schedule_ui import garden_schedule_summary, render_schedules
 
 APP_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.environ.get("PLANT_CARE_DATA_DIR", str(APP_ROOT / "data")))
@@ -102,6 +103,7 @@ def garden():
             ui.stat("쌓인 관리 기록", f"{sum(map(len, records.values()))}건", "물주기부터 작은 관찰까지")
         with columns[2]:
             ui.stat("AI 관찰", f"{sum(map(len, analyses.values()))}건", "기록을 참고한 관리 제안")
+    garden_schedule_summary(store)
     st.subheader("오늘, 이렇게 시작해요")
     st.caption("물주기 날짜만으로 필요한 관리를 정하지 않아요. 현재 모습과 흙 상태를 먼저 확인해 주세요.")
     if plants:
@@ -151,7 +153,7 @@ def plant_detail(plant):
             ui.stat("관리 기록", f"{len(logs)}건", "이 식물과 함께한 순간")
         with columns[2]:
             ui.stat("AI 관찰", f"{len(analyses)}건", "저장한 분석 결과")
-    overview, care, ai = st.tabs(["한눈에 보기", "관리 기록", "AI 분석"], key=f"plant_tabs_{plant['id']}", on_change="rerun")
+    overview, care, ai, schedules = st.tabs(["한눈에 보기", "관리 기록", "AI 분석", "케어 일정"], key=f"plant_tabs_{plant['id']}", on_change="rerun")
     with overview:
         left, right = st.columns([1.15, 1], gap="large")
         with left:
@@ -180,6 +182,8 @@ def plant_detail(plant):
             ui.timeline(store, logs, CARE_TYPES, OUTCOMES)
     with ai:
         render_analysis(store, plant, on_refresh=refresh_team_records)
+    with schedules:
+        render_schedules(store, plant)
     st.divider()
     st.download_button("이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
 
