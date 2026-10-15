@@ -6,7 +6,9 @@ import sqlite3
 import streamlit as st
 from plant_care.constants import CARE_TYPES, OUTCOMES
 from plant_care.store_factory import create_store, discard_cached_store
-from plant_care.cloud_store import CloudError
+from plant_care.cloud_store import CloudError, CloudPlantStore
+from plant_care.storage import PlantStore
+from plant_care.snapshot import TABLES
 from plant_care.data_ui import data_tools
 from plant_care.ai_ui import render_analysis
 from plant_care.comparison_ui import comparison_screen
@@ -19,6 +21,12 @@ APP_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.environ.get("PLANT_CARE_DATA_DIR", str(APP_ROOT / "data")))
 st.set_page_config(page_title="내 식물 기록 · 내 정원", page_icon="🌿", layout="wide", initial_sidebar_state="collapsed")
 ui.style()
+
+# Cloud hot reload can briefly keep old imported store classes. Wait for a cold
+# restart before reading/writing the extended snapshot rather than mixing versions.
+if not all(callable(getattr(cls, 'add_schedule', None)) for cls in (PlantStore, CloudPlantStore)) or 'care_schedules' not in TABLES:
+    st.warning('업데이트 적용을 위한 재시작이 필요해요. 앱 관리자가 재시작한 뒤 다시 접속해 주세요.')
+    st.stop()
 
 
 def refresh_team_records():

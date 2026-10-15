@@ -33,6 +33,15 @@ class ScheduleTests(unittest.TestCase):
         self.store.add_analysis(self.plant, 'mock-only', analysis_context(self.store, self.plant, '질문', False), RESULT, {})
         return self.store.list_suggestions(self.plant)[0]['id']
 
+    def test_deployment_with_cached_old_store_stops_before_read_or_write(self):
+        from plant_care.cloud_store import CloudPlantStore
+        with patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': self.folder.name, 'STORAGE_BACKEND': 'local'}), \
+                patch.object(CloudPlantStore, 'add_schedule', None), patch('plant_care.store_factory.create_store') as factory:
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            self.assertEqual(len(app.exception), 0)
+            self.assertTrue(any('재시작' in warning.value for warning in app.warning))
+            factory.assert_not_called()
+
     def test_ai_schedule_preserves_source_rejects_duplicate_and_links_actual_execution(self):
         sid = self.source()
         plan = self.store.add_schedule(self.plant, '확인 후 관리', 'observation', today_in_seoul(), source_suggestion_id=sid)
