@@ -130,6 +130,7 @@ flowchart LR
 | 필요한 안내 | 문서 |
 |---|---|
 | 팀원 사용·테스트·문제 제보 | [TEAM_TESTING](docs/TEAM_TESTING.md) |
+| 팀 운영 규칙·역할 배정안·중간보고·간트 계획 | [PROJECT_PLAN](docs/PROJECT_PLAN.md) |
 | 설치·실행·테스트·로컬 데이터 | [RUNNING](docs/RUNNING.md) |
 | AI 키·한도·전송 정보 | [AI_SETUP](docs/AI_SETUP.md) |
 | 제안 → 실행 → 이후 관찰 | [CARE_LOOP](docs/CARE_LOOP.md) |
