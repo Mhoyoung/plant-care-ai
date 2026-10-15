@@ -6,7 +6,8 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 from .constants import CARE_TYPES
 from .time_utils import today_in_seoul
-from .calendar_export import calendar_ics, google_calendar_url
+from .calendar_export import CalendarLinkTooLong, calendar_ics, google_calendar_url
+from .schedule_text import ai_schedule_description, short_proposal_title
 from . import ui
 
 
@@ -68,6 +69,14 @@ def _source_details(source, analyses):
         st.caption(analysis['result']['uncertainty'])
 
 
+def _calendar_details(source, analyses):
+    analysis = analyses.get(source['analysis_id']) if source else None
+    if not analysis:
+        return None
+    result = analysis['result']
+    return ai_schedule_description(source['suggestion_text'], result['checks'], result['uncertainty'])
+
+
 def _schedule_candidates(plant_id, suggestions, analyses, pending):
     planned = {item['source_suggestion_id'] for item in pending}
     candidates = [item for item in suggestions.values() if not item['execution'] and item['id'] not in planned]
@@ -100,10 +109,9 @@ def _fields(prefix, item=None, source=None):
     kind = st.selectbox('관리 종류', list(CARE_TYPES), index=list(CARE_TYPES).index(item['kind']) if item else (None if source else 3),
                         placeholder='계획할 관리 종류를 선택해 주세요',
                         format_func=CARE_TYPES.get, key=f'{prefix}_kind')
-    source_title = source['suggestion_text'] if source else ''
-    if len(source_title) > 100:
-        source_title = source_title[:99] + '…'
-        st.caption('할 일에는 짧은 제목을 사용해요. 전체 제안과 확인 조건은 위의 원문과 저장된 일정에 연결해 보관합니다.')
+    source_title = short_proposal_title(source['suggestion_text']) if source else ''
+    if source:
+        st.caption('제목은 확인할 주제로 짧게 채웠어요. 직접 바꿀 수 있고, 원래 제안·확인 조건·분석 한계는 캘린더 설명에 모두 들어가요.')
     title = st.text_input('할 일 *', value=item['title'] if item else source_title, max_chars=100,
                           placeholder='예: 흙 상태를 확인하고 물주기 판단', key=f'{prefix}_title')
     left, right = st.columns(2)
@@ -164,14 +172,27 @@ def render_schedules(store, plant):
             st.caption(CARE_TYPES[item['kind']])
             if item['notes']:
                 st.write(item['notes'])
-            if linked := suggestions.get(item['source_suggestion_id']):
+            linked = suggestions.get(item['source_suggestion_id'])
+            if linked:
                 st.caption('저장된 AI 제안에서 만든 일정 · 실제 완료 시 해당 제안의 실행 기록으로 연결돼요.')
                 with st.expander('이 일정의 AI 제안·확인 조건'):
                     _source_details(linked, analyses)
             with st.expander('휴대폰 캘린더에 추가'):
-                st.link_button('Google 캘린더에 추가', google_calendar_url(item), width='stretch')
-                st.download_button('다른 캘린더 파일 (.ics)', calendar_ics(item), file_name=f'plant-care-{sid}.ics',
-                                   mime='text/calendar', key=f'{prefix}_ics', width='stretch', on_click='ignore')
+                ai_details = _calendar_details(linked, analyses)
+                if item['source_suggestion_id'] is not None and not ai_details:
+                    st.warning('원래 AI 제안과 확인 조건을 찾을 수 없어요. 팀 기록을 새로고침한 뒤 다시 시도해 주세요.')
+                else:
+                    if ai_details:
+                        with st.expander('캘린더에 들어갈 AI 설명'):
+                            st.text(ai_details)
+                    try:
+                        calendar_url = google_calendar_url(item, ai_details=ai_details)
+                    except CalendarLinkTooLong as error:
+                        st.info(str(error) + ' Google 캘린더는 PC 웹 설정의 가져오기 및 내보내기에서 파일을 가져올 수 있어요.')
+                    else:
+                        st.link_button('Google 캘린더에 추가', calendar_url, width='stretch')
+                    st.download_button('다른 캘린더 파일 (.ics)', calendar_ics(item, ai_details=ai_details), file_name=f'plant-care-{sid}.ics',
+                                       mime='text/calendar', key=f'{prefix}_ics', width='stretch', on_click='ignore')
                 st.caption('Google은 저장 화면에서 알림을 직접 설정해 주세요. .ics에는 10분 전 알림이 들어 있지만 캘린더에 따라 적용되지 않을 수 있어요. 추가 후 휴대폰 캘린더의 알림과 권한을 확인해 주세요.')
                 st.caption('앱과 캘린더는 자동 동기화되지 않아요. 여기서 수정·취소해도 캘린더 일정은 남으므로 캘린더에서도 직접 변경해 주세요.')
             with st.expander('실제로 관리했어요 · 완료 기록'):

@@ -9,7 +9,8 @@ from urllib.parse import parse_qs, urlparse
 from streamlit.testing.v1 import AppTest
 from plant_care.storage import PlantStore
 from plant_care.snapshot import dump_store, restore_connection, make_backup, read_backup, LEGACY_TABLES
-from plant_care.calendar_export import calendar_ics, google_calendar_url
+from plant_care.calendar_export import CalendarLinkTooLong, _escape, calendar_ics, google_calendar_url
+from plant_care.schedule_text import ai_schedule_description, short_proposal_title
 from plant_care.gemini import analysis_context
 from plant_care.time_utils import today_in_seoul
 from plant_care.cloud_store import CloudError
@@ -111,6 +112,7 @@ class ScheduleTests(unittest.TestCase):
             self.assertEqual(len(app.exception), 0)
             self.assertEqual(app.session_state[f'plant_tabs_{self.plant}'], '케어 일정')
             prefix = f'schedule_new_{self.plant}_1'
+            self.assertEqual(app.text_input(key=f'{prefix}_title').value, '흙 상태·물주기 조건 확인')
             self.assertIsNone(app.selectbox(key=f'{prefix}_kind').value)
             self.assertIsNone(app.date_input(key=f'{prefix}_day').value)
             self.assertFalse(app.checkbox(key=f'{prefix}_confirmed').value)
@@ -121,9 +123,16 @@ class ScheduleTests(unittest.TestCase):
             self.assertEqual(self.store.list_schedules(), [])
             app.selectbox(key=f'{prefix}_kind').select('observation')
             app.date_input(key=f'{prefix}_day').set_value(today_in_seoul())
+            app.text_input(key=f'{prefix}_title').set_value('흙 촉촉한지 확인')
             click_button(app, '일정 추가')
             self.assertEqual(len(app.exception), 0)
             self.assertEqual(self.store.list_schedules()[0]['source_suggestion_id'], sid)
+            self.assertEqual(self.store.list_schedules()[0]['title'], '흙 촉촉한지 확인')
+            calendar_link = next(element for element in app.get('link_button') if element.label == 'Google 캘린더에 추가')
+            query = parse_qs(urlparse(calendar_link.proto.url).query)
+            self.assertEqual(query['text'], ['테스트 식물 · 흙 촉촉한지 확인'])
+            for text in [*RESULT['actions'], *RESULT['checks'], RESULT['uncertainty']]:
+                self.assertIn(text, query['details'][0])
             self.assertEqual(self.store.list_logs(self.plant), [])
             self.assertIn('예정된 일정 보기', [button.label for button in app.button])
             ai.assert_not_called()
@@ -212,6 +221,45 @@ class ScheduleTests(unittest.TestCase):
         self.store.cancel_schedule(sid)
         with self.assertRaises(ValueError):
             calendar_ics(self.store.list_schedules()[0])
+
+    def test_short_title_is_a_check_topic_and_original_conditions_are_preserved(self):
+        action = '속흙까지 보송하게 마른 것이 확인될 경우에만 배수구로 물이 흘러나올 때까지 물을 주세요. 촉촉하면 물을 주지 마세요.'
+        title = short_proposal_title(action)
+        self.assertEqual(title, '흙 상태·물주기 조건 확인')
+        self.assertLess(len(title), 25)
+        self.assertEqual(short_proposal_title('물을 주지 마세요.'), title)
+        self.assertEqual(short_proposal_title('다음 사진과 비교해 주세요.'), 'AI 관리 제안 확인')
+        checks = ['흙을 손가락 한 마디 깊이로 확인하세요.', '받침대에 고인 물이 있는지 확인하세요.']
+        uncertainty = '사진으로는 속흙 수분을 판단할 수 없습니다.'
+        details = ai_schedule_description(action, checks, uncertainty)
+        sid = self.source()
+        self.store.add_schedule(self.plant, title, 'observation', date(2026, 10, 20), '19:00',
+                                '직접 확인할 메모', source_suggestion_id=sid)
+        item = self.store.list_schedules()[0]
+        query = parse_qs(urlparse(google_calendar_url(item, ai_details=details)).query)
+        self.assertEqual(query['text'], ['테스트 식물 · ' + title])
+        self.assertEqual(query['dates'], ['20261020T100000Z/20261020T101500Z'])
+        for text in [action, *checks, uncertainty, '직접 확인할 메모']:
+            self.assertIn(text, query['details'][0])
+        raw = calendar_ics(item, ai_details=details)
+        unfolded = raw.decode('utf-8').replace('\r\n ', '')
+        self.assertIn('DESCRIPTION:' + _escape(query['details'][0]) + '\r\n', unfolded)
+        self.assertTrue(all(len(line) <= 75 for line in raw.split(b'\r\n')))
+        with self.assertRaises(ValueError):
+            google_calendar_url(item)
+        with self.assertRaises(ValueError):
+            calendar_ics(item)
+
+    def test_long_calendar_description_keeps_all_conditions_in_file(self):
+        sid = self.source()
+        self.store.add_schedule(self.plant, '흙 상태 확인', 'observation', today_in_seoul(), source_suggestion_id=sid)
+        item = self.store.list_schedules()[0]
+        details = ai_schedule_description('긴 원래 제안. ' * 100, ['확인 조건. ' * 100], '마지막 분석 한계도 그대로 보존')
+        with self.assertRaises(CalendarLinkTooLong):
+            google_calendar_url(item, ai_details=details)
+        unfolded = calendar_ics(item, ai_details=details).decode('utf-8').replace('\r\n ', '')
+        self.assertIn(_escape(details), unfolded)
+        self.assertEqual(self.store.list_schedules()[0], item)
 
     def test_ui_add_validation_complete_and_cancel_without_ai_requests(self):
         with patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': self.folder.name, 'STORAGE_BACKEND': 'local'}), \
