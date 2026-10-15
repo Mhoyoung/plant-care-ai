@@ -4,7 +4,8 @@ import json
 import re
 from zipfile import ZipFile, ZIP_DEFLATED
 
-TABLES = ('plants', 'ai_analyses', 'ai_suggestions', 'care_logs', 'plant_weather_regions')
+LEGACY_TABLES = ('plants', 'ai_analyses', 'ai_suggestions', 'care_logs', 'plant_weather_regions')
+TABLES = (*LEGACY_TABLES, 'care_schedules')
 MAX_STATE_BYTES = 16 * 1024 * 1024
 MAX_BACKUP_BYTES = 100 * 1024 * 1024
 
@@ -26,16 +27,20 @@ def dump_store(store):
 
 
 def restore_connection(connection, state):
-    if not isinstance(state, dict) or state.get('version') != 1 or set(state.get('tables', {})) != set(TABLES):
+    # Additive extension inside the existing server envelope. Old gardens/backups have no schedules.
+    if not isinstance(state, dict) or state.get('version') != 1 or not isinstance(state.get('tables'), dict) or \
+            set(state['tables']) not in (set(TABLES), set(LEGACY_TABLES)):
         raise ValueError('정원 데이터 형식을 확인할 수 없어요.')
     if any(connection.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone() for table in TABLES):
         raise ValueError('기존 기록이 있는 정원에는 백업을 덮어쓰지 않아요.')
     for table in TABLES:
         columns = [row['name'] for row in connection.execute(f'PRAGMA table_info({table})')]
-        rows = state['tables'][table]
+        rows = state['tables'].get(table, [])
         if not isinstance(rows, list):
             raise ValueError('정원 데이터 형식을 확인할 수 없어요.')
         for row in rows:
+            if table == 'care_schedules' and isinstance(row, dict) and set(row) == set(columns) - {'source_suggestion_id'}:
+                row = {**row, 'source_suggestion_id': None}
             if not isinstance(row, dict) or set(row) != set(columns):
                 raise ValueError('정원 데이터 형식을 확인할 수 없어요.')
             if row.get('photo_path'):

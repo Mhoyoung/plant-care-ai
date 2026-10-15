@@ -25,6 +25,11 @@
 .garden-back-to-top[hidden] { display:none; }
 .garden-back-to-top:hover { background:#eff3e9; box-shadow:0 5px 18px #25463220; }
 .garden-back-to-top:focus-visible { outline:3px solid #527b4d; outline-offset:3px; }
+.schedule-due { color:#596e50; font-size:13px; font-weight:600; margin-bottom:8px; }
+.schedule-title, .plant-card-copy h3 { overflow-wrap:anywhere; }
+.schedule-title { padding:0; margin:0 0 8px; line-height:1.5; }
+[class*="st-key-plant_tabs_"] > div > [role="tablist"] { gap:4px; }
+[class*="st-key-plant_tabs_"] > div > [role="tablist"] [role="tab"] { flex:1; min-width:0; min-height:48px; padding:8px; font-size:14px; }
 [data-testid="stSidebar"] [data-testid="stSelectbox"] { margin-top:1.8rem; }
 [data-testid="stHeader"] { background:transparent; }
 .eyebrow { color:#758264; font-size:10px; font-weight:700; letter-spacing:2px; }
@@ -117,6 +122,11 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
   .detail-copy { padding:24px; }
 }
 @media(max-width:600px) {
+  [data-testid="stCaptionContainer"] p { font-size:13px; line-height:1.7; }
+  .card-counts, .care-chip, .plant-card-copy p, .partner-meta { font-size:13px; line-height:1.65; }
+  [data-testid="stLinkButton"] a { min-height:48px; font-size:14px; }
+  [class*="st-key-plant_tabs_"] > div > [role="tablist"] [role="tab"] { font-size:13px; padding:8px 4px; white-space:normal; }
+  [class*="st-key-plant_tabs_"] > div > [role="tablist"] [role="tab"] p { white-space:normal; overflow-wrap:anywhere; }
   .partner-note { display:block; position:relative; }
   .partner-avatar { position:absolute; width:40px; height:40px; top:12px; left:16px; z-index:1; }
   .partner-bubble { padding:14px 16px; }

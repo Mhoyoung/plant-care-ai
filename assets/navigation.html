@@ -11,6 +11,7 @@
 <script>
 (() => {
   // Only this checked-in, static HTML enables JavaScript; no user data is inserted.
+  document.documentElement.lang = 'ko';
   const app = document.querySelector('.stApp');
   const header = document.getElementById('garden-navigation');
   const scroller = app?.querySelector('[data-testid="stMain"]');

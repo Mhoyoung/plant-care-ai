@@ -108,7 +108,7 @@ class AppTests(unittest.TestCase):
             app.button(key=f"open_plant_{plant}").click().run()
             self.assertEqual(app.selectbox(key="selected_plant").value, plant)
             self.assertEqual(len(app.exception), 0)
-            self.assertEqual([tab.label for tab in app.tabs], ["내 정원", "한눈에 보기", "관리 기록", "AI 분석", "새 식물", "AI 비교"])
+            self.assertEqual([tab.label for tab in app.tabs], ["내 정원", "한눈에 보기", "관리 기록", "AI 분석", "케어 일정", "새 식물", "AI 비교"])
             app.button(key="back_to_garden").click().run()
             self.assertEqual(app.selectbox(key="selected_plant").value, -1)
             app.button(key="garden_add").click().run()
