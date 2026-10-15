@@ -14,6 +14,7 @@ from plant_care.gemini import analysis_context
 from plant_care.time_utils import today_in_seoul
 from plant_care.cloud_store import CloudError
 from test_app import APP_PATH, click_button
+from test_gemini import RESULT
 import test_cloud_store as cloud_tests
 
 
@@ -27,6 +28,79 @@ class ScheduleTests(unittest.TestCase):
     def add(self, **kwargs):
         return self.store.add_schedule(self.plant, **dict(title='흙 확인', kind='observation',
             due_on=today_in_seoul(), due_time='09:00', **kwargs))
+
+    def source(self):
+        self.store.add_analysis(self.plant, 'mock-only', analysis_context(self.store, self.plant, '질문', False), RESULT, {})
+        return self.store.list_suggestions(self.plant)[0]['id']
+
+    def test_ai_schedule_preserves_source_rejects_duplicate_and_links_actual_execution(self):
+        sid = self.source()
+        plan = self.store.add_schedule(self.plant, '확인 후 관리', 'observation', today_in_seoul(), source_suggestion_id=sid)
+        self.assertIsNone(self.store.list_suggestions(self.plant)[0]['execution'])
+        self.assertEqual(self.store.list_logs(self.plant), [])
+        with self.assertRaises(ValueError):
+            self.store.add_schedule(self.plant, '중복', 'observation', today_in_seoul(), source_suggestion_id=sid)
+        other = self.store.add_plant('다른 식물')
+        with self.assertRaises(ValueError):
+            self.store.add_schedule(other, '다른 식물 제안', 'observation', today_in_seoul(), source_suggestion_id=sid)
+        with tempfile.TemporaryDirectory() as target:
+            restored = PlantStore(target)
+            with restored._connection() as connection:
+                restore_connection(connection, dump_store(self.store))
+            self.assertEqual(restored.list_schedules()[0]['source_suggestion_id'], sid)
+        log = self.store.complete_schedule(plan, 'observation', today_in_seoul(), '촉촉해서 관찰만 했음')
+        self.assertEqual(self.store.list_suggestions(self.plant)[0]['execution']['id'], log)
+        self.assertIsNone(self.store.last_watered(self.plant))
+        with self.assertRaises(ValueError):
+            self.store.add_schedule(self.plant, '실행한 제안 재추가', 'watering', today_in_seoul(), source_suggestion_id=sid)
+
+    def test_separate_ai_execution_blocks_schedule_completion_without_orphan_log(self):
+        sid = self.source()
+        plan = self.store.add_schedule(self.plant, '예정', 'observation', today_in_seoul(), source_suggestion_id=sid)
+        self.store.add_log(self.plant, 'observation', today_in_seoul(), '먼저 기록함', suggestion_id=sid, link_type='execution')
+        with self.assertRaises(ValueError):
+            self.store.complete_schedule(plan, 'watering', today_in_seoul(), '중복 실행')
+        self.assertEqual(len(self.store.list_logs(self.plant)), 1)
+        self.assertEqual(self.store.list_schedules()[0]['status'], 'pending')
+        self.store.cancel_schedule(plan)
+
+    def test_ai_draft_requires_user_date_kind_and_confirmation_without_new_api_call(self):
+        sid = self.source()
+        with patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': self.folder.name, 'STORAGE_BACKEND': 'local'}), \
+                patch('plant_care.ai_ui.analyze') as ai, patch('plant_care.comparison.analyze') as comparison:
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            app.selectbox(key='selected_plant').select(self.plant).run()
+            app.button(key=f'analysis_schedule_{sid}').click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(app.session_state[f'plant_tabs_{self.plant}'], '케어 일정')
+            prefix = f'schedule_new_{self.plant}_1'
+            self.assertIsNone(app.selectbox(key=f'{prefix}_kind').value)
+            self.assertIsNone(app.date_input(key=f'{prefix}_day').value)
+            self.assertFalse(app.checkbox(key=f'{prefix}_confirmed').value)
+            click_button(app, '일정 추가')
+            self.assertEqual(self.store.list_schedules(), [])
+            app.checkbox(key=f'{prefix}_confirmed').check()
+            click_button(app, '일정 추가')
+            self.assertEqual(self.store.list_schedules(), [])
+            app.selectbox(key=f'{prefix}_kind').select('observation')
+            app.date_input(key=f'{prefix}_day').set_value(today_in_seoul())
+            click_button(app, '일정 추가')
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(self.store.list_schedules()[0]['source_suggestion_id'], sid)
+            self.assertEqual(self.store.list_logs(self.plant), [])
+            self.assertIn('예정된 일정 보기', [button.label for button in app.button])
+            ai.assert_not_called()
+            comparison.assert_not_called()
+
+    def test_schedule_backup_before_source_column_still_loads(self):
+        self.add()
+        state = dump_store(self.store)
+        state['tables']['care_schedules'][0].pop('source_suggestion_id')
+        with tempfile.TemporaryDirectory() as target:
+            restored = PlantStore(target)
+            with restored._connection() as connection:
+                restore_connection(connection, state)
+            self.assertIsNone(restored.list_schedules()[0]['source_suggestion_id'])
 
     def test_plan_is_not_observation_completion_is_atomic_and_only_once(self):
         before = analysis_context(self.store, self.plant, '같은 질문', False)

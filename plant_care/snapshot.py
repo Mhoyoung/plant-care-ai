@@ -39,6 +39,8 @@ def restore_connection(connection, state):
         if not isinstance(rows, list):
             raise ValueError('정원 데이터 형식을 확인할 수 없어요.')
         for row in rows:
+            if table == 'care_schedules' and isinstance(row, dict) and set(row) == set(columns) - {'source_suggestion_id'}:
+                row = {**row, 'source_suggestion_id': None}
             if not isinstance(row, dict) or set(row) != set(columns):
                 raise ValueError('정원 데이터 형식을 확인할 수 없어요.')
             if row.get('photo_path'):

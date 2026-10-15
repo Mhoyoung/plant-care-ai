@@ -60,6 +60,18 @@ def suggestion_card(store, suggestion, prefix):
             label, mode = "이후 상태 남기기", MODES[2]
         st.button(label, key=f"{prefix}_suggestion_{suggestion['id']}", width="stretch",
                   on_click=open_care, args=(suggestion["plant_id"], suggestion["id"], mode))
+        if not execution:
+            from .schedule_ui import prepare_ai_schedule
+            from .ui import open_tab
+            planned = any(item['status'] == 'pending' and item['source_suggestion_id'] == suggestion['id']
+                          for item in store.list_schedules(suggestion['plant_id']))
+            if planned:
+                st.caption('이 제안으로 예정된 일정이 있어요. 실제로 관리하기 전까지 실행 기록은 생기지 않아요.')
+                st.button('예정된 일정 보기', key=f"{prefix}_schedule_{suggestion['id']}", width='stretch',
+                          on_click=open_tab, args=(suggestion['plant_id'], '케어 일정'))
+            else:
+                st.button('AI 제안으로 일정 만들기', key=f"{prefix}_schedule_{suggestion['id']}", width='stretch',
+                          on_click=prepare_ai_schedule, args=(suggestion['plant_id'], suggestion['id']))
 
 
 def care_form(store, plant_id):

@@ -103,6 +103,11 @@ class PlantStore:
                 connection.execute('ALTER TABLE care_logs ADD COLUMN suggestion_id INTEGER REFERENCES ai_suggestions(id)')
             if 'link_type' not in columns:
                 connection.execute("ALTER TABLE care_logs ADD COLUMN link_type TEXT CHECK(link_type IN ('execution', 'outcome'))")
+            schedule_columns = {row['name'] for row in connection.execute('PRAGMA table_info(care_schedules)')}
+            if 'source_suggestion_id' not in schedule_columns:
+                connection.execute('ALTER TABLE care_schedules ADD COLUMN source_suggestion_id INTEGER REFERENCES ai_suggestions(id)')
+            connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS schedule_pending_source_once ON care_schedules(source_suggestion_id) "
+                               "WHERE status='pending' AND source_suggestion_id IS NOT NULL")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS suggestion_execution_once "
                                "ON care_logs(suggestion_id) WHERE link_type = 'execution'")
             connection.execute('CREATE INDEX IF NOT EXISTS care_logs_suggestion ON care_logs(suggestion_id, occurred_on, id)')
@@ -255,14 +260,23 @@ class PlantStore:
             raise ValueError('일정 날짜와 시간을 확인해 주세요.') from error
         return title, kind, day.isoformat(), clock.strftime('%H:%M'), notes
 
-    def add_schedule(self, plant_id, title, kind, due_on, due_time='09:00', notes=''):
+    def add_schedule(self, plant_id, title, kind, due_on, due_time='09:00', notes='', source_suggestion_id=None):
         self.get_plant(plant_id)
         values = self._schedule_values(title, kind, due_on, due_time, notes)
         now = datetime.now(timezone.utc).isoformat()
         with self._connection() as connection:
+            if source_suggestion_id is not None:
+                source = connection.execute('SELECT a.plant_id FROM ai_suggestions s JOIN ai_analyses a ON a.id=s.analysis_id '
+                                            'WHERE s.id=?', (source_suggestion_id,)).fetchone()
+                if source is None or source['plant_id'] != plant_id:
+                    raise ValueError('이 식물의 AI 제안을 선택해 주세요.')
+                if connection.execute("SELECT 1 FROM care_logs WHERE suggestion_id=? AND link_type='execution'", (source_suggestion_id,)).fetchone():
+                    raise ValueError('이미 실행한 제안이에요. 이후 상태를 관찰해 주세요.')
+                if connection.execute("SELECT 1 FROM care_schedules WHERE source_suggestion_id=? AND status='pending'", (source_suggestion_id,)).fetchone():
+                    raise ValueError('이미 예정된 일정이 있어요. 기존 일정을 확인해 주세요.')
             cursor = connection.execute('INSERT INTO care_schedules '
-                '(plant_id,title,kind,due_on,due_time,notes,calendar_uid,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)',
-                (plant_id, *values, uuid4().hex, now, now))
+                '(plant_id,title,kind,due_on,due_time,notes,calendar_uid,created_at,updated_at,source_suggestion_id) VALUES (?,?,?,?,?,?,?,?,?,?)',
+                (plant_id, *values, uuid4().hex, now, now, source_suggestion_id))
             return cursor.lastrowid
 
     def list_schedules(self, plant_id=None):
@@ -308,8 +322,11 @@ class PlantStore:
         now = datetime.now(timezone.utc).isoformat()
         with self._connection() as connection:
             row = self._pending_schedule(connection, schedule_id)
-            cursor = connection.execute('INSERT INTO care_logs(plant_id,kind,occurred_on,notes,created_at) VALUES (?,?,?,?,?)',
-                (row['plant_id'], kind, day.isoformat(), notes, now))
+            source = row['source_suggestion_id']
+            if source is not None:
+                self._validate_link(connection, row['plant_id'], source, 'execution', day)
+            cursor = connection.execute('INSERT INTO care_logs(plant_id,kind,occurred_on,notes,created_at,suggestion_id,link_type) VALUES (?,?,?,?,?,?,?)',
+                (row['plant_id'], kind, day.isoformat(), notes, now, source, 'execution' if source is not None else None))
             log_id = cursor.lastrowid
             connection.execute("UPDATE care_schedules SET status='completed',completed_log_id=?,revision=revision+1,updated_at=? WHERE id=?",
                                (log_id, now, schedule_id))

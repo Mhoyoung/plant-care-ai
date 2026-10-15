@@ -46,14 +46,40 @@ def _save(operation, *args, **kwargs):
     return True
 
 
-def _fields(prefix, item=None):
-    kind = st.selectbox('관리 종류', list(CARE_TYPES), index=list(CARE_TYPES).index(item['kind']) if item else 3,
+def prepare_ai_schedule(plant_id, suggestion_id):
+    ui.open_tab(plant_id, '케어 일정')
+    st.session_state[f'schedule_draft_{plant_id}'] = suggestion_id
+    st.session_state[f'schedule_generation_{plant_id}'] = st.session_state.get(f'schedule_generation_{plant_id}', 0) + 1
+
+
+def clear_ai_draft(plant_id):
+    st.session_state.pop(f'schedule_draft_{plant_id}', None)
+    st.session_state[f'schedule_generation_{plant_id}'] = st.session_state.get(f'schedule_generation_{plant_id}', 0) + 1
+
+
+def _source_details(source, analyses):
+    st.write(source['suggestion_text'])
+    analysis = analyses.get(source['analysis_id'])
+    if analysis:
+        st.write('**먼저 확인할 것**')
+        for check in analysis['result']['checks']:
+            st.write('• ' + check)
+        st.caption(analysis['result']['uncertainty'])
+
+
+def _fields(prefix, item=None, source=None):
+    kind = st.selectbox('관리 종류', list(CARE_TYPES), index=list(CARE_TYPES).index(item['kind']) if item else (None if source else 3),
+                        placeholder='계획할 관리 종류를 선택해 주세요',
                         format_func=CARE_TYPES.get, key=f'{prefix}_kind')
-    title = st.text_input('할 일 *', value=item['title'] if item else '', max_chars=100,
+    source_title = source['suggestion_text'] if source else ''
+    if len(source_title) > 100:
+        source_title = source_title[:99] + '…'
+        st.caption('할 일에는 짧은 제목을 사용해요. 전체 제안과 확인 조건은 위의 원문과 저장된 일정에 연결해 보관합니다.')
+    title = st.text_input('할 일 *', value=item['title'] if item else source_title, max_chars=100,
                           placeholder='예: 흙 상태를 확인하고 물주기 판단', key=f'{prefix}_title')
     left, right = st.columns(2)
     with left:
-        day = st.date_input('예정 날짜', value=date.fromisoformat(item['due_on']) if item else today_in_seoul(), key=f'{prefix}_day')
+        day = st.date_input('예정 날짜', value=date.fromisoformat(item['due_on']) if item else (None if source else today_in_seoul()), key=f'{prefix}_day')
     with right:
         clock = st.time_input('예정 시간 · 한국 기준', value=time.fromisoformat(item['due_time']) if item else time(9), key=f'{prefix}_time')
     notes = st.text_area('일정 메모', value=item['notes'] if item else '', max_chars=1000, key=f'{prefix}_notes')
@@ -66,15 +92,32 @@ def render_schedules(store, plant):
     st.caption('일정은 관리할 예정이에요. 물을 주기 전에는 흙 상태부터 확인하고, 실제로 한 일은 완료할 때 남겨 주세요.')
     items = store.list_schedules(plant_id)
     pending = [item for item in items if item['status'] == 'pending']
+    suggestions = {item['id']: item for item in store.list_suggestions(plant_id)}
+    analyses = {item['id']: item for item in store.list_analyses(plant_id)}
+    draft_id = st.session_state.get(f'schedule_draft_{plant_id}')
+    source = suggestions.get(draft_id)
+    if draft_id is not None and (source is None or source['execution'] or any(item['source_suggestion_id'] == draft_id for item in pending)):
+        st.warning('이 제안은 이미 실행했거나 일정에 추가했거나 찾을 수 없어요. 아래 기록과 일정을 확인해 주세요.')
+        clear_ai_draft(plant_id)
+        source = None
+    if source:
+        st.info('AI 제안에서 만든 일정 초안이에요. AI 응답의 시점과 확인 조건을 참고해 날짜·시간·관리 종류를 직접 정해 주세요.')
+        with st.expander('원래 AI 제안과 확인 조건', expanded=True):
+            _source_details(source, analyses)
+        st.button('일반 일정으로 입력', key=f'schedule_clear_{plant_id}', on_click=clear_ai_draft, args=(plant_id,))
     generation = st.session_state.get(f'schedule_generation_{plant_id}', 0)
-    with st.expander('＋ 새 케어 일정', expanded=not pending):
+    with st.expander('＋ 새 케어 일정', expanded=bool(source) or not pending):
         prefix = f'schedule_new_{plant_id}_{generation}'
         with st.form(prefix):
-            values = _fields(prefix)
+            values = _fields(prefix, source=source)
+            confirmed = st.checkbox('AI 제안의 확인 조건과 예정 날짜를 확인했어요', key=f'{prefix}_confirmed') if source else True
             added = st.form_submit_button('일정 추가', type='primary', width='stretch')
-        if added and _save(store.add_schedule, plant_id, **values):
-            st.session_state[f'schedule_generation_{plant_id}'] = generation + 1
-            st.rerun()
+        if added:
+            if not confirmed:
+                st.error('AI 제안의 조건과 날짜를 확인한 뒤 체크해 주세요.')
+            elif _save(store.add_schedule, plant_id, **values, source_suggestion_id=source['id'] if source else None):
+                clear_ai_draft(plant_id)
+                st.rerun()
     if pending:
         st.caption(f'예정 {len(pending)}건 · 날짜가 지난 일정도 실제 완료 전까지 유지돼요.')
     for item in pending:
@@ -85,6 +128,10 @@ def render_schedules(store, plant):
             st.caption(CARE_TYPES[item['kind']])
             if item['notes']:
                 st.write(item['notes'])
+            if linked := suggestions.get(item['source_suggestion_id']):
+                st.caption('저장된 AI 제안에서 만든 일정 · 실제 완료 시 해당 제안의 실행 기록으로 연결돼요.')
+                with st.expander('이 일정의 AI 제안·확인 조건'):
+                    _source_details(linked, analyses)
             with st.expander('휴대폰 캘린더에 추가'):
                 st.link_button('Google 캘린더에 추가', google_calendar_url(item), width='stretch')
                 st.download_button('다른 캘린더 파일 (.ics)', calendar_ics(item), file_name=f'plant-care-{sid}.ics',

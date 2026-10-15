@@ -9,6 +9,8 @@ def _event(schedule):
     title = f"{schedule['plant_name']} · {schedule['title']}"
     details = (schedule['notes'] + '\n\n식물 상태를 확인한 뒤 필요한 관리만 해 주세요. '
                '이 일정은 앱과 자동 동기화되지 않습니다. 변경·취소 시 캘린더도 직접 수정해 주세요.')
+    if schedule.get('source_suggestion_id') is not None:
+        details = 'AI 제안에서 만든 일정입니다. 실행 전 앱의 원래 제안과 확인 조건을 다시 살펴보세요.\n\n' + details
     return start.astimezone(timezone.utc), title, details
 
 
