@@ -85,7 +85,7 @@ macOS·Linux, 데이터 위치와 백업은 [상세 실행 안내](docs/RUNNING.
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-2026-10-15 Python 3.12 환경에서 **테스트 76개가 통과**했습니다.
+2026-10-15 Python 3.12 환경에서 **테스트 78개가 통과**했습니다.
 임시 데이터와 모의 API로 실행하므로 실제 정원에 테스트 기록을 추가하거나 Gemini를 호출하지 않습니다.
 
 | 확인한 범위 | 아직 별도로 확인할 범위 |

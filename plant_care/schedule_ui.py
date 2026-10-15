@@ -1,7 +1,8 @@
 """Planned care stays separate from observed, completed care."""
-from datetime import date, time
+from datetime import date, time, datetime
 from html import escape
 import sqlite3
+from zoneinfo import ZoneInfo
 import streamlit as st
 from .constants import CARE_TYPES
 from .time_utils import today_in_seoul
@@ -67,6 +68,34 @@ def _source_details(source, analyses):
         st.caption(analysis['result']['uncertainty'])
 
 
+def _schedule_candidates(plant_id, suggestions, analyses, pending):
+    planned = {item['source_suggestion_id'] for item in pending}
+    candidates = [item for item in suggestions.values() if not item['execution'] and item['id'] not in planned]
+    if not candidates:
+        st.caption('아직 일정으로 만들 수 있는 AI 제안이 없어요. 아래에서 직접 입력하거나 AI 분석에서 먼저 살펴보세요.')
+        st.button('AI 분석에서 살펴보기', key=f'schedule_analysis_{plant_id}', width='stretch',
+                  on_click=ui.open_tab, args=(plant_id, 'AI 분석'))
+        return
+    st.subheader('AI 제안으로 시작하기')
+    st.caption('이미 저장한 분석의 제안이에요. 현재 상태와 확인 조건을 살펴보고 일정을 정해 주세요. 추가 AI 요청은 없어요.')
+
+    def candidate_card(item):
+        with st.container(border=True, key=f"candidate_card_{item['id']}"):
+            timestamp = datetime.fromisoformat(item['suggested_at']).astimezone(ZoneInfo('Asia/Seoul'))
+            demo = analyses.get(item['analysis_id'], {}).get('input', {}).get('evaluation_demo')
+            st.caption(f"{timestamp:%Y.%m.%d} 분석에서 제안" + (' · 가상 사례' if demo else ''))
+            st.write(item['suggestion_text'])
+            st.button('이 제안으로 일정 만들기', key=f"schedule_candidate_{item['id']}", width='stretch',
+                      on_click=prepare_ai_schedule, args=(plant_id, item['id']))
+
+    for item in candidates[:3]:
+        candidate_card(item)
+    if len(candidates) > 3:
+        with st.expander(f'이전 제안 {len(candidates) - 3}개 더 보기'):
+            for item in candidates[3:]:
+                candidate_card(item)
+
+
 def _fields(prefix, item=None, source=None):
     kind = st.selectbox('관리 종류', list(CARE_TYPES), index=list(CARE_TYPES).index(item['kind']) if item else (None if source else 3),
                         placeholder='계획할 관리 종류를 선택해 주세요',
@@ -92,6 +121,8 @@ def render_schedules(store, plant):
     st.caption('일정은 관리할 예정이에요. 물을 주기 전에는 흙 상태부터 확인하고, 실제로 한 일은 완료할 때 남겨 주세요.')
     items = store.list_schedules(plant_id)
     pending = [item for item in items if item['status'] == 'pending']
+    if not pending:
+        st.info('아직 예정된 케어 일정이 없어요. AI 제안을 골라 일정을 만들거나 아래에서 직접 추가해 보세요.')
     suggestions = {item['id']: item for item in store.list_suggestions(plant_id)}
     analyses = {item['id']: item for item in store.list_analyses(plant_id)}
     draft_id = st.session_state.get(f'schedule_draft_{plant_id}')
@@ -105,8 +136,13 @@ def render_schedules(store, plant):
         with st.expander('원래 AI 제안과 확인 조건', expanded=True):
             _source_details(source, analyses)
         st.button('일반 일정으로 입력', key=f'schedule_clear_{plant_id}', on_click=clear_ai_draft, args=(plant_id,))
+    else:
+        with st.expander('AI 제안에서 일정 만들기', expanded=not pending):
+            _schedule_candidates(plant_id, suggestions, analyses, pending)
     generation = st.session_state.get(f'schedule_generation_{plant_id}', 0)
-    with st.expander('＋ 새 케어 일정', expanded=bool(source) or not pending):
+    creator = st.container(border=True) if source or not pending else st.expander('＋ 새 케어 일정')
+    with creator:
+        st.subheader('AI 제안으로 일정 추가' if source else '직접 일정 추가')
         prefix = f'schedule_new_{plant_id}_{generation}'
         with st.form(prefix):
             values = _fields(prefix, source=source)
