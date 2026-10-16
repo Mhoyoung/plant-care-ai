@@ -9,6 +9,8 @@ from time import time
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
+from types import SimpleNamespace
+from base64 import b64decode
 
 from streamlit.testing.v1 import AppTest
 from plant_care.auth import AuthClient, AuthError, AuthSession, UserClient, SESSION_KEY, clear_account_state
@@ -16,6 +18,7 @@ from plant_care.cloud_store import CloudError
 from plant_care.personal_store import PersonalCloudPlantStore
 from plant_care.snapshot import TABLES, make_backup, read_backup
 from plant_care.store_factory import create_store, CACHE_KEY
+from plant_care.private_media import photo, download
 from test_app import APP_PATH, click_button
 from test_storage import test_photo_bytes
 from test_gemini import RESULT
@@ -160,6 +163,28 @@ class PersonalStoreTests(unittest.TestCase):
 
 
 class AuthTests(unittest.TestCase):
+    def test_personal_photos_are_data_uris_instead_of_shared_media_files(self):
+        data = test_photo_bytes()
+        with patch('plant_care.private_media.st.image') as image:
+            photo(data, personal=True)
+            source = image.call_args.args[0]
+            self.assertTrue(source.startswith('data:image/jpeg;base64,'))
+            self.assertEqual(b64decode(source.split(',', 1)[1]), data)
+            photo(data, personal=False)
+            self.assertEqual(image.call_args.args[0], data)
+
+    def test_personal_download_never_registers_public_download_url(self):
+        with patch('plant_care.private_media.st.download_button') as public_download, \
+             patch('plant_care.private_media.st.iframe') as inline:
+            download(SimpleNamespace(personal=True), '내 백업', b'private-test-bytes',
+                     file_name='garden.zip', mime='application/zip')
+            public_download.assert_not_called()
+            html = inline.call_args.args[0]
+            self.assertIn('download="garden.zip"', html)
+            encoded = html.split('base64,', 1)[1].split('"', 1)[0]
+            self.assertEqual(b64decode(encoded), b'private-test-bytes')
+            self.assertNotIn('/media/', html)
+
     def test_user_transport_uses_publishable_plus_bearer_and_rejects_service_keys(self):
         client = UserClient(URL, KEY, 'user-token')
         with patch('plant_care.cloud_store.urlopen') as open_url:
@@ -255,6 +280,11 @@ class AuthUITests(unittest.TestCase):
             self.assertFalse('_login_password' in app.session_state)
             app.session_state['garden_backup'] = b'private'
             app.session_state['comparison_question'] = 'private'
+            app.run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertFalse(app.get('download_button'))
+            frames = app.get('iframe')
+            self.assertTrue(any('download="plant-care-garden.zip"' in f.proto.srcdoc for f in frames))
             click_button(app, '로그아웃')
             self.assertEqual(len(app.exception), 0)
             self.assertFalse('garden_backup' in app.session_state)

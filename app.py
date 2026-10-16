@@ -7,6 +7,7 @@ import streamlit as st
 from plant_care.constants import CARE_TYPES, OUTCOMES
 from plant_care.store_factory import create_store, discard_cached_store, personal_mode
 from plant_care.auth_ui import require_account, logout
+from plant_care.private_media import download
 from plant_care.cloud_store import CloudError, CloudPlantStore
 from plant_care.storage import PlantStore
 from plant_care.snapshot import TABLES
@@ -198,7 +199,7 @@ def plant_detail(plant):
     with schedules:
         render_schedules(store, plant)
     st.divider()
-    st.download_button("이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
+    download(store, "이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
 
 default_view = st.session_state.get("_main_tab_target", "내 정원" if plants else "새 식물")
 generation = st.session_state.get("_main_nav_generation", 0)

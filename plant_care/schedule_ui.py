@@ -4,6 +4,7 @@ from html import escape
 import sqlite3
 from zoneinfo import ZoneInfo
 import streamlit as st
+from .private_media import download
 from .constants import CARE_TYPES
 from .time_utils import today_in_seoul
 from .calendar_export import CalendarLinkTooLong, calendar_ics, google_calendar_url
@@ -191,7 +192,7 @@ def render_schedules(store, plant):
                         st.info(str(error) + ' Google 캘린더는 PC 웹 설정의 가져오기 및 내보내기에서 파일을 가져올 수 있어요.')
                     else:
                         st.link_button('Google 캘린더에 추가', calendar_url, width='stretch')
-                    st.download_button('다른 캘린더 파일 (.ics)', calendar_ics(item, ai_details=ai_details), file_name=f'plant-care-{sid}.ics',
+                    download(store, '다른 캘린더 파일 (.ics)', calendar_ics(item, ai_details=ai_details), file_name=f'plant-care-{sid}.ics',
                                        mime='text/calendar', key=f'{prefix}_ics', width='stretch', on_click='ignore')
                 st.caption('Google은 저장 화면에서 알림을 직접 설정해 주세요. .ics에는 10분 전 알림이 들어 있지만 캘린더에 따라 적용되지 않을 수 있어요. 추가 후 휴대폰 캘린더의 알림과 권한을 확인해 주세요.')
                 st.caption('앱과 캘린더는 자동 동기화되지 않아요. 여기서 수정·취소해도 캘린더 일정은 남으므로 캘린더에서도 직접 변경해 주세요.')
