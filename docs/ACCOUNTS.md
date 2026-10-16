@@ -1,0 +1,89 @@
+# 이메일 로그인과 개인 정원
+
+기준일: 2026-10-16. 웹 로그인 코드는 Supabase Auth를 사용합니다. **실제 전환에는 SQL·공개 키·메일 설정과 두 계정 시험이 필요합니다.** Android 클라이언트는 아직 구현 전이며 같은 계정을 사용하도록 준비합니다.
+
+## 사용자 흐름
+
+1. 공유 앱의 **회원가입**에서 본인 이메일과 8~128자 비밀번호를 입력합니다. 비밀번호를 채팅·Issue에 보내지 않습니다.
+2. 이메일의 인증 링크를 누른 뒤 앱으로 돌아와 **로그인**합니다. 인증 링크도 공유하지 않습니다.
+3. 처음에는 빈 개인 정원이 열립니다. 식물·사진·기록·분석·제안·날씨 지역·일정·백업은 계정별로 나뉩니다.
+4. 같은 이메일로 다른 기기에서도 로그인할 수 있습니다. **내 기록 새로고침**으로 최신 기록을 읽습니다.
+5. 메뉴에서 **로그아웃**하면 이전 입력·사진 캐시·비교 결과·준비한 ZIP을 세션에서 지웁니다. 이미 내려받은 파일은 기기에 남습니다.
+
+브라우저를 새로 열거나 서버 세션이 종료되면 다시 로그인할 수 있습니다. 영구 로그인·계정 삭제·비밀번호 재설정 화면은 이번 구현에 포함되지 않습니다. 비밀번호를 잊으면 관리자에게 복구 절차를 문의하되 비밀번호 자체는 전달하지 않습니다.
+개인 정원이 분리돼도 Gemini 프로젝트와 한도는 공용입니다. AI 전송 동의와 수동 요청 흐름은 유지합니다.
+
+## 관리자 설정 순서
+
+1. 기존 [setup.sql](../supabase/setup.sql) 적용을 확인하고 [personal.sql](../supabase/personal.sql) 전체를 SQL Editor에서 실행합니다. 새 사용자 테이블·RPC·사진 RLS를 추가하며 기존 팀 정원은 변경하지 않습니다.
+2. Authentication에서 이메일·비밀번호 가입과 **Confirm email**을 켠 상태를 유지합니다. URL Configuration의 **Site URL**과 허용 Redirect URLs를 정확한 공유 앱 주소로 설정합니다.
+3. **Custom SMTP**를 설정합니다. 기본 발송은 프로젝트 조직 구성원의 이메일만, 시간당 2통 수준으로 제한됩니다. 일반 팀원 가입을 위해 DB 관리자 권한을 부여하거나 이메일 인증을 끄지 않습니다. SMTP 계정·발신 도메인·비밀 설정은 관리자가 직접 준비합니다. [공식 SMTP 안내](https://supabase.com/docs/guides/auth/auth-smtp)
+4. 기존 Gemini 설정·URL을 유지하고 Streamlit Secrets에 아래 설정을 추가합니다.
+
+```toml
+STORAGE_BACKEND = "supabase"
+GARDEN_MODE = "personal"
+SUPABASE_URL = "https://프로젝트참조.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_로 시작하는 공개 키"
+```
+
+Settings → API Keys의 Publishable key 또는 기존 anon 키를 사용합니다. Secret/service_role 키는 거부합니다. 원문을 채팅·GitHub·사진으로 공유하지 않습니다.
+기존 `SUPABASE_SECRET_KEY`가 남아 있어도 개인 모드에서는 사용하지 않습니다. 설정이 없으면 공유 정원·로컬 정원으로 전환하지 않고 중단합니다. 배포 후 필요하면 앱을 재시작합니다.
+Streamlit 공개 설정은 앱 페이지 접속 여부이며, 개인 기록 접근은 별도의 앱 로그인으로 제어합니다.
+
+### 팀 테스트용 Gmail SMTP 설정
+
+별도 발신 도메인이 아직 없다면 본인 Gmail 계정의 SMTP로 먼저 시험할 수 있습니다. 인증 메일 발신자로 해당 Gmail 주소가 표시됩니다. 일반 공개 운영에는 전용 발신 도메인과 메일 서비스를 준비합니다.
+
+1. 본인이 Google 계정의 **보안 → 2단계 인증**을 설정합니다.
+2. [앱 비밀번호](https://myaccount.google.com/apppasswords)에서 `Plant Care SMTP` 등의 이름으로 발급합니다. 본인이 직접 발급하고 입력하며 채팅·GitHub에 보내지 않습니다.
+3. Supabase의 **Authentication → Emails → SMTP Settings**에서 Custom SMTP를 켜고 다음 값을 직접 입력·저장합니다.
+
+| 항목 | 값 |
+|---|---|
+| Sender email | 사용할 본인 Gmail 주소 |
+| Sender name | 내 식물 기록 |
+| Host | `smtp.gmail.com` |
+| Port | `587` |
+| Username | Sender email과 같은 Gmail 전체 주소 |
+| Password | 방금 발급한 Google 앱 비밀번호. 평소 Gmail 비밀번호는 사용하지 않음 |
+
+4. Confirm email은 켠 상태를 유지하고, 실제 이메일 하나로 가입 → 인증 메일 수신 → 링크 확인 → 앱 로그인 순서를 시험합니다. 성공 전에는 팀원 가입 완료로 표시하지 않습니다.
+
+앱 비밀번호 메뉴가 보이지 않으면 2단계 인증 방식, 학교/조직 계정 정책, 고급 보호 사용 여부를 확인합니다. 사용할 수 없는 계정이면 강제로 보안을 낮추지 말고 다른 SMTP 서비스로 진행합니다. 계정 비밀번호를 변경하면 기존 앱 비밀번호가 해지될 수 있습니다.
+출처: [Google 앱 비밀번호 안내](https://support.google.com/mail/answer/185833?hl=ko) · [Supabase의 Google SMTP 연결 안내](https://supabase.com/docs/guides/troubleshooting/using-google-smtp-with-supabase-custom-smtp-ZZzU4Y)
+
+## 권한과 기존 데이터
+
+개인 테이블은 `auth.uid() = owner_id`로 제한합니다. 데이터 요청은 **Publishable key + 사용자 JWT**를 사용하며 서버용 Secret key로 RLS를 우회하지 않습니다.
+사진은 비공개 버킷의 `<사용자 UUID>/photos/<파일 UUID>.jpg`에 저장합니다. 다른 소유자와 기존 공동 사진 `photos/...`는 허용하지 않습니다.
+
+기존 팀 정원은 첫 가입자에게 배정하지 않습니다. 기존 테이블·사진을 보존하며 개인 모드에서는 보이지 않습니다.
+이전이 필요하면 소유자를 합의한 뒤 전체 ZIP을 지정한 빈 개인 정원에 명시적으로 가져옵니다. ZIP의 모든 기록·사진이 이전되므로 자료 당사자 동의를 확인합니다. 기존 기록이 있는 정원에는 덮어쓰지 않습니다.
+`GARDEN_MODE = "team"`은 앱 로그인 없이 공동 정원을 여는 호환 모드입니다. **비공개 개발·복구 환경에서만** 사용하고 공개 공유 앱에서는 사용하지 않습니다. 기본 로컬 모드는 로그인 없는 별도 SQLite 정원으로 유지하며 인터넷 공개용으로 사용하지 않습니다.
+
+## 검증 순서
+
+[verify_personal.sql](../supabase/verify_personal.sql)은 두 임시 UUID와 실제 PostgreSQL 역할로 계정 간 조회·수정·사진 접근 차단을 확인하고 **모든 시험 데이터를 롤백**합니다. 이메일·비밀번호를 만들거나 메일을 보내지 않습니다.
+모의 자동 테스트와 SQL 권한 시험은 실제 두 계정의 브라우저 시험을 대체하지 않습니다. 아래 미실행 항목은 통과로 표시하지 않습니다.
+
+2026-10-16 실제 프로젝트에 `personal.sql`을 적용하고 `verify_personal.sql`의 역할별 권한 시험을 통과했습니다. 시험 주체·사진 메타데이터·정원은 롤백됐고, 기존 팀 스냅샷의 버전·내용은 동일했습니다. 인증 후 돌아올 Site URL과 Redirect URL은 공유 앱 주소로 설정했습니다. 실제 이메일 가입·로그인과 앱의 두 계정 시험은 아직 미실행입니다.
+
+| 순서 | 확인 결과 |
+|---|---|
+| 로그인 전 | 내 정원·AI 요청·기록·백업 UI가 없음 |
+| A 가입·인증·로그인 | 빈 정원에 `[테스트] A` 식물·사진·관찰·일정 저장 |
+| B 가입·로그인 | A 자료가 없고 B 자료만 저장·조회 가능 |
+| A 다시 로그인 | A 자료가 유지되고 B 자료는 없음 |
+| 같은 브라우저 A → 로그아웃 → B | A의 선택·입력·비교 결과·사진·백업이 남지 않음 |
+| 같은 계정 다른 기기 | 새로고침 후 같은 기록, 동시 수정 시 충돌 안내 |
+| 만료·유효하지 않은 로그인 | 재로그인/연결 오류 화면, 개인 내용은 렌더링하지 않음 |
+| 앱 재시작 | 로그인 후 해당 계정 기록이 유지됨 |
+
+## Android 공통 계정
+
+같은 Supabase 프로젝트의 이메일·비밀번호로 인증해 동일한 `auth.users.id`를 사용합니다. 계정을 다시 만들 필요는 없으며 웹과 앱은 별도 세션으로 로그인합니다.
+추가할 Python API는 사용자 토큰을 검증한 뒤 동일한 JWT로 저장소를 호출합니다. 클라이언트가 보낸 owner_id를 권한 근거로 사용하지 않습니다. Gemini 키·Supabase Secret key는 APK에 넣지 않습니다.
+토큰 보관·갱신·만료·로그아웃·인증 링크 처리는 Android 구현 시 별도로 검증합니다.
+
+참고: [비밀번호 인증](https://supabase.com/docs/guides/auth/passwords) · [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) · [Storage 권한](https://supabase.com/docs/guides/storage/security/access-control)

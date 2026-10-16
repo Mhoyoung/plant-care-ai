@@ -5,7 +5,8 @@ from pathlib import Path
 import sqlite3
 import streamlit as st
 from plant_care.constants import CARE_TYPES, OUTCOMES
-from plant_care.store_factory import create_store, discard_cached_store
+from plant_care.store_factory import create_store, discard_cached_store, personal_mode
+from plant_care.auth_ui import require_account, logout
 from plant_care.cloud_store import CloudError, CloudPlantStore
 from plant_care.storage import PlantStore
 from plant_care.snapshot import TABLES
@@ -37,8 +38,9 @@ try:
     settings = st.secrets.to_dict()
 except (FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
     settings = {}
+account, auth_client = require_account(settings) if personal_mode(settings) else (None, None)
 try:
-    store = create_store(DATA_ROOT, settings, session=st.session_state)
+    store = create_store(DATA_ROOT, settings, session=st.session_state, auth=account)
     plants = store.list_plants()
 except (CloudError, OSError, sqlite3.Error) as error:
     st.error(str(error) if isinstance(error, CloudError) else '기록 저장소에 연결하지 못했어요.')
@@ -57,9 +59,12 @@ with st.sidebar:
         format_func=lambda value: "전체 정원" if value == -1 else plant_by_id[value]["name"],
         key="selected_plant", on_change=ui.select_garden_plant)
     st.caption(f"함께 키우는 식물 {len(plants)}개")
+    if account:
+        st.text(account.email)
+        st.button('로그아웃', key='account_logout', on_click=logout, args=(auth_client, account), width='stretch')
     if store.backend == 'supabase':
-        st.button('팀 기록 새로고침', key='refresh_team_records', on_click=refresh_team_records, width='stretch')
-        st.caption('다른 팀원의 최신 기록을 바로 확인하려면 눌러 주세요.')
+        st.button('내 기록 새로고침' if account else '팀 기록 새로고침', key='refresh_team_records', on_click=refresh_team_records, width='stretch')
+        st.caption('다른 기기에서 저장한 내 기록을 확인하려면 눌러 주세요.' if account else '다른 팀원의 최신 기록을 바로 확인하려면 눌러 주세요.')
     data_tools(store, on_refresh=refresh_team_records)
     st.html('<div class="sidebar-footer">PLANT JOURNAL<br>오늘의 작은 변화를 남겨보세요.</div>')
 with st.container(key="top_nav"):
