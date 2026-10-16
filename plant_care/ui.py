@@ -4,6 +4,7 @@ from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import streamlit as st
+from .private_media import photo
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,7 +59,7 @@ def plant_photo(store, plant, detail=False):
 
 def display_photo(store, relative, width):
     try:
-        st.image(store.read_photo(relative), width=width)
+        photo(store.read_photo(relative), width=width, personal=getattr(store, 'personal', False))
     except (OSError, ValueError):
         st.warning('사진을 불러오지 못했어요. 기록은 유지되며 저장소 연결 후 다시 확인할 수 있어요.')
 

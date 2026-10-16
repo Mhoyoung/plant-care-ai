@@ -27,8 +27,20 @@ class SupabaseClient:
         self._url = url.rstrip('/')
         self._secret = secret
 
+    def _headers(self):
+        return {'apikey': self._secret, 'User-Agent': 'PlantCareAI/server', 'Accept': 'application/json'}
+
+    def _http_error(self, error):
+        if error.code == 409:
+            return CloudError('다른 곳에서 먼저 저장했어요. 새로고침한 뒤 다시 기록해 주세요.')
+        if error.code in (401, 403):
+            return CloudError('저장소 접근 설정을 확인해 주세요. 다시 로그인하거나 관리자에게 알려 주세요.')
+        if error.code == 404:
+            return CloudError('저장소가 준비되지 않았어요. Supabase SQL 초기 설정을 확인해 주세요.')
+        return CloudError('저장소 요청을 완료하지 못했어요. 설정·용량과 프로젝트 일시정지 여부를 확인해 주세요.')
+
     def request(self, path, method='GET', data=None, binary=False, limit=MAX_STATE_BYTES + 1024, upsert=False):
-        headers = {'apikey': self._secret, 'User-Agent': 'PlantCareAI/server', 'Accept': 'application/json'}
+        headers = self._headers()
         if isinstance(data, bytes):
             headers.update({'Content-Type': 'image/jpeg', 'x-upsert': 'true' if upsert else 'false'})
         elif data is not None:
@@ -44,13 +56,7 @@ class SupabaseClient:
                 raise CloudError('저장소 응답이 너무 커서 읽지 못했어요.')
             return raw if binary else (json.loads(raw) if raw else None)
         except HTTPError as error:
-            if error.code == 409:
-                raise CloudError('다른 팀원이 먼저 저장했어요. 새로고침한 뒤 다시 기록해 주세요.') from None
-            if error.code in (401, 403):
-                raise CloudError('저장소 접근 설정을 확인해 주세요. 키와 SQL 초기 설정이 필요해요.') from None
-            if error.code == 404:
-                raise CloudError('저장소가 준비되지 않았어요. Supabase SQL 초기 설정을 확인해 주세요.') from None
-            raise CloudError('저장소 요청을 완료하지 못했어요. 설정·용량과 프로젝트 일시정지 여부를 확인해 주세요.') from None
+            raise self._http_error(error) from None
         except (URLError, TimeoutError, OSError):
             raise CloudError('저장소 응답을 확인하지 못했어요. 새로고침해 저장 여부를 먼저 확인해 주세요.') from None
         except (ValueError, TypeError, KeyError):
@@ -61,15 +67,31 @@ class CloudPlantStore(PlantStore):
     """요청마다 원격 정원을 복원해 기존 검증을 사용하고, 변경만 원자적으로 저장한다."""
     backend = 'supabase'
 
-    def __init__(self, url, secret):
-        self.client = SupabaseClient(url, secret)
-        self._ready = False
-        self._uncertain = False
-        self._photo_cache = {}
+    def _make_client(self, url, secret):
+        return SupabaseClient(url, secret)
+
+    def _load_remote(self):
         bucket = self.client.request('/storage/v1/bucket/plant-care-photos')
         if not isinstance(bucket, dict) or bucket.get('public') is not False:
             raise CloudError('사진 저장소를 비공개로 설정해 주세요.')
-        rows = self.client.request('/rest/v1/pc_gardens?id=eq.team-garden&select=state,revision')
+        return self.client.request('/rest/v1/pc_gardens?id=eq.team-garden&select=state,revision')
+
+    def _save_remote(self, state, write_id):
+        return self.client.request('/rest/v1/rpc/pc_save_garden', 'POST',
+            {'p_expected_revision': self._revision, 'p_state': state, 'p_write_id': write_id})
+
+    def _find_write(self, write_id):
+        return self.client.request(f'/rest/v1/pc_garden_writes?write_id=eq.{write_id}&select=revision')
+
+    def _remote_photo(self, name):
+        return photo_name(name)
+
+    def __init__(self, url, secret):
+        self.client = self._make_client(url, secret)
+        self._ready = False
+        self._uncertain = False
+        self._photo_cache = {}
+        rows = self._load_remote()
         if not isinstance(rows, list) or len(rows) != 1 or type(rows[0].get('revision')) is not int:
             raise CloudError('정원 저장소를 초기화해 주세요. SQL 설정 파일을 실행해야 해요.')
         self._revision = rows[0]['revision']
@@ -105,12 +127,11 @@ class CloudPlantStore(PlantStore):
                 state = dump_connection(connection)
                 write_id = str(uuid4())
                 try:
-                    revision = self.client.request('/rest/v1/rpc/pc_save_garden', 'POST',
-                                                   {'p_expected_revision': self._revision, 'p_state': state, 'p_write_id': write_id})
+                    revision = self._save_remote(state, write_id)
                 except CloudError as error:
                     # 응답이 끊긴 뒤에도 서버에서 커밋됐을 수 있다. 같은 쓰기의 완료만 조회한다.
                     try:
-                        records = self.client.request(f'/rest/v1/pc_garden_writes?write_id=eq.{write_id}&select=revision')
+                        records = self._find_write(write_id)
                     except CloudError:
                         records = None
                     if records and len(records) == 1 and type(records[0].get('revision')) is int:
@@ -130,7 +151,7 @@ class CloudPlantStore(PlantStore):
             return None
         prepared = prepare_photo(photo)
         name = f'photos/{uuid4().hex}.jpg'
-        self.client.request('/storage/v1/object/plant-care-photos/' + name, 'POST', prepared)
+        self.client.request('/storage/v1/object/plant-care-photos/' + self._remote_photo(name), 'POST', prepared)
         self._photo_cache[name] = prepared
         return name
 
@@ -142,7 +163,7 @@ class CloudPlantStore(PlantStore):
     def read_photo(self, relative):
         relative = photo_name(relative)
         if relative not in self._photo_cache:
-            self._photo_cache[relative] = self.client.request('/storage/v1/object/authenticated/plant-care-photos/' + relative,
+            self._photo_cache[relative] = self.client.request('/storage/v1/object/authenticated/plant-care-photos/' + self._remote_photo(relative),
                                                             binary=True, limit=MAX_PHOTO_BYTES)
         return self._photo_cache[relative]
 
@@ -157,4 +178,4 @@ class CloudPlantStore(PlantStore):
                 photo_name(name)
                 prepared = prepare_photo(data)
                 # UUID를 새로 만들지 않아 기존 기록의 연결을 그대로 유지한다.
-                self.client.request('/storage/v1/object/plant-care-photos/' + name, 'POST', prepared, upsert=True)
+                self.client.request('/storage/v1/object/plant-care-photos/' + self._remote_photo(name), 'POST', prepared, upsert=True)

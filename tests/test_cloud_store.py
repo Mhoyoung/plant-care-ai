@@ -70,6 +70,9 @@ class FakeCloud:
 
 class CloudStoreTests(unittest.TestCase):
     def setUp(self):
+        legacy = patch.dict(os.environ, {'GARDEN_MODE': 'team'})
+        legacy.start()
+        self.addCleanup(legacy.stop)
         self.cloud = FakeCloud()
         self.mock = patch('plant_care.cloud_store.SupabaseClient.request', side_effect=self.cloud.request)
         self.mock.start()

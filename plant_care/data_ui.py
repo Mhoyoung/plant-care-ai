@@ -5,6 +5,7 @@ from zipfile import BadZipFile
 import streamlit as st
 from .cloud_store import CloudError
 from .snapshot import make_backup, read_backup
+from .private_media import download
 
 
 def data_tools(store, on_refresh=None):
@@ -20,7 +21,7 @@ def data_tools(store, on_refresh=None):
                 st.session_state.pop('garden_backup', None)
                 st.error('전체 백업을 준비하지 못했어요. 사진 연결과 저장소 상태를 확인해 주세요.')
         if backup := st.session_state.get('garden_backup'):
-            st.download_button('정원 전체 백업 내려받기', data=backup, file_name='plant-care-garden.zip',
+            download(store, '정원 전체 백업 내려받기', data=backup, file_name='plant-care-garden.zip',
                                mime='application/zip', key='download_garden_backup')
             st.caption('백업 준비 버튼을 누른 시점의 파일입니다. 이후 기록은 다시 백업해 주세요.')
         if store.backend == 'supabase' and not store.list_plants():

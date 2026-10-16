@@ -7,6 +7,7 @@ from .gemini import AnalysisError, analysis_context
 from .media import prepare_photo
 from .ui import heading
 from .insight_ui import render_insight
+from .private_media import photo as display_private_photo, download
 
 LABELS = {"baseline": "기록 없이", "history": "기록 포함"}
 
@@ -66,7 +67,7 @@ def comparison_screen(store, plants, on_refresh=None):
     st.write(f"**이번 비교의 질문:** {trial['inputs']['history']['current_state']}")
     with st.expander("고정한 입력 확인"):
         if trial["photo"] is not None:
-            st.image(trial["photo"], width=250)
+            display_private_photo(trial["photo"], width=250, personal=getattr(store, 'personal', False))
         st.json(trial["inputs"])
     st.caption("아래 각 버튼은 Gemini에 한 번 요청합니다. 두 조건을 모두 누르면 총 2회이며, 무료 한도에서 차감되거나 결제 프로젝트에서 과금될 수 있습니다. 무료 구간 입력은 Google 제품 개선에 사용될 수 있어요.")
     consent = st.checkbox("고정한 식물 정보·질문·선택 사진과, 기록 포함 조건에서는 과거 관리·제안·경과를 Google Gemini로 보내는 데 동의합니다.", key="comparison_consent")
@@ -110,6 +111,6 @@ def comparison_screen(store, plants, on_refresh=None):
                 st.success("평가를 남겼어요. 아래에서 비교 기록을 내려받아 주세요.")
     st.divider()
     st.caption("실험은 현재 브라우저 세션에만 보관됩니다. 새로고침·접속 종료 전에 내려받아 주세요. 정원 전체 백업에는 포함되지 않습니다.")
-    st.download_button("비교 기록 내려받기", export_trial(trial), file_name=f"plant-care-comparison-{trial['id']}.json", mime="application/json", width="stretch")
+    download(store, "비교 기록 내려받기", export_trial(trial), file_name=f"plant-care-comparison-{trial['id']}.json", mime="application/json", width="stretch")
     if trial["photo"] is not None:
-        st.download_button("비교에 사용한 사진 내려받기", trial["photo"], file_name=f"comparison-{trial['id']}.jpg", mime="image/jpeg")
+        download(store, "비교에 사용한 사진 내려받기", trial["photo"], file_name=f"comparison-{trial['id']}.jpg", mime="image/jpeg")

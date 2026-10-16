@@ -3,7 +3,7 @@
   "info": {
     "title": "Plant Care Android Read API — design draft",
     "version": "0.1.0-draft",
-    "description": "설계 초안입니다. 아직 API 서버가 구현·배포되지 않았습니다. 초기 범위는 인증된 팀 정원의 읽기 전용 목록·상세 조회입니다. 원격 데이터 연결 전 인증과 팀 접근 제어를 구현합니다."
+    "description": "설계 초안입니다. 아직 API 서버가 구현·배포되지 않았습니다. 초기 범위는 Supabase Auth 사용자 본인 정원의 읽기 전용 목록·상세 조회입니다. 원격 데이터 연결 전 JWT 검증과 사용자별 RLS를 구현합니다."
   },
   "security": [{"userBearer": []}],
   "paths": {
@@ -18,7 +18,7 @@
     "/v1/plants": {
       "get": {
         "operationId": "listPlants",
-        "description": "사용자가 접근할 수 있는 팀 정원의 식물을 ID 오름차순으로 반환합니다.",
+        "description": "인증된 사용자 본인 정원의 식물을 ID 오름차순으로 반환합니다.",
         "responses": {
           "200": {"description": "식물 요약 목록. 빈 정원은 items=[]", "content": {"application/json": {"schema": {"type": "object", "required": ["items"], "additionalProperties": false, "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/PlantSummary"}}}}, "example": {"items": [{"id": 1, "name": "[테스트] API 예시 식물", "species": "몬스테라", "location": "가상 장소", "last_watered_on": null, "care_log_count": 0, "analysis_count": 0, "photo_available": false}]}}}},
           "401": {"$ref": "#/components/responses/Unauthenticated"},
@@ -84,7 +84,7 @@
     },
     "responses": {
       "Unauthenticated": {"description": "사용자 인증 필요", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}},
-      "Forbidden": {"description": "팀 정원 접근 권한 없음", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}},
+      "Forbidden": {"description": "정원 접근 권한 없음", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}},
       "Unavailable": {"description": "저장소 연결 실패. 로컬 정원으로 자동 전환하지 않음", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}}}
     }
   }
