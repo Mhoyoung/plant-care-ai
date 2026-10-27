@@ -62,6 +62,10 @@ class UserClient(SupabaseClient):
 
 
 class AuthClient(UserClient):
+    def _network_error(self):
+        # Auth outages do not imply an uncertain garden write or an invalid password.
+        return AuthError('로그인 서버에 연결하지 못했어요. 잠시 뒤 다시 시도하고, 계속되면 관리자에게 알려 주세요.')
+
     def _http_error(self, error):
         # Parse only an allowlisted machine code. Never echo server text or request credentials.
         try:

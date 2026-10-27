@@ -8,7 +8,7 @@ from pathlib import Path
 from time import time
 import unittest
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from types import SimpleNamespace
 from base64 import b64decode
 
@@ -163,6 +163,26 @@ class PersonalStoreTests(unittest.TestCase):
 
 
 class AuthTests(unittest.TestCase):
+    def test_auth_network_failure_is_safe_and_not_reported_as_garden_write(self):
+        for failure in (URLError('private-transport-details'), TimeoutError('private-timeout')):
+            with self.subTest(failure=type(failure).__name__), \
+                    patch('plant_care.cloud_store.urlopen', side_effect=failure) as transport:
+                with self.assertRaises(AuthError) as raised:
+                    AuthClient(URL, KEY).sign_in('private@example.invalid', 'private-password')
+                self.assertIn('로그인 서버', str(raised.exception))
+                self.assertNotIn('저장 여부', str(raised.exception))
+                self.assertNotIn('private', str(raised.exception))
+                self.assertFalse(raised.exception.invalid_session)
+                transport.assert_called_once()
+
+    def test_authenticated_outage_blocks_verification_without_invalidating_session(self):
+        with patch('plant_care.cloud_store.urlopen', side_effect=URLError('private-token')) as transport:
+            with self.assertRaises(AuthError) as raised:
+                AuthClient(URL, KEY).verify(session())
+            self.assertFalse(raised.exception.invalid_session)
+            self.assertIn('로그인 서버', str(raised.exception))
+            transport.assert_called_once()
+
     def test_personal_photos_are_data_uris_instead_of_shared_media_files(self):
         data = test_photo_bytes()
         with patch('plant_care.private_media.st.image') as image:

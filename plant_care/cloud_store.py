@@ -30,6 +30,9 @@ class SupabaseClient:
     def _headers(self):
         return {'apikey': self._secret, 'User-Agent': 'PlantCareAI/server', 'Accept': 'application/json'}
 
+    def _network_error(self):
+        return CloudError('저장소 응답을 확인하지 못했어요. 새로고침해 저장 여부를 먼저 확인해 주세요.')
+
     def _http_error(self, error):
         if error.code == 409:
             return CloudError('다른 곳에서 먼저 저장했어요. 새로고침한 뒤 다시 기록해 주세요.')
@@ -58,7 +61,7 @@ class SupabaseClient:
         except HTTPError as error:
             raise self._http_error(error) from None
         except (URLError, TimeoutError, OSError):
-            raise CloudError('저장소 응답을 확인하지 못했어요. 새로고침해 저장 여부를 먼저 확인해 주세요.') from None
+            raise self._network_error() from None
         except (ValueError, TypeError, KeyError):
             raise CloudError('저장소 응답 형식을 확인할 수 없어요.') from None
 
