@@ -20,6 +20,35 @@ def click_button(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_home_ai_shortcut_only_opens_analysis_without_request_or_write(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as api:
+            store = PlantStore(folder)
+            plant = store.add_plant("홈 시험 식물")
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.button(key="home_ai").click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(app.session_state['selected_plant'], plant)
+            self.assertEqual(app.session_state[f'plant_tabs_{plant}'], 'AI 분석')
+            self.assertEqual(store.list_analyses(plant), [])
+            self.assertEqual(store.list_logs(plant), [])
+            api.assert_not_called()
+
+    def test_home_schedule_shortcut_opens_correct_plant_without_completing(self):
+        from plant_care.time_utils import today_in_seoul
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}):
+            store = PlantStore(folder)
+            plant = store.add_plant("일정이 있는 식물")
+            store.add_plant("다른 식물")
+            sid = store.add_schedule(plant, "흙 상태 확인", "observation", today_in_seoul())
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.button(key=f"due_open_{sid}").click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(app.session_state['selected_plant'], plant)
+            self.assertEqual(app.session_state[f'plant_tabs_{plant}'], '케어 일정')
+            self.assertEqual(store.list_schedules(plant)[0]['status'], 'pending')
+            self.assertEqual(store.list_logs(plant), [])
+
     def test_comparison_question_survives_garden_actions_without_ai_calls_or_saves(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
                 patch("plant_care.ai_ui.analyze") as api, patch("plant_care.comparison.analyze") as comparison_api:

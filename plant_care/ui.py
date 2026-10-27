@@ -1,5 +1,6 @@
 """식물 기록 화면 스타일. 사용자 텍스트는 출력 전에 이스케이프한다."""
 from datetime import date, datetime
+from base64 import b64encode
 from html import escape
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -35,18 +36,16 @@ def heading(eyebrow, title, subtitle=""):
     st.html(f'<div class="page-heading"><span class="eyebrow">{escape(eyebrow)}</span>'
             f'<h1>{escape(title)}</h1><p>{escape(subtitle)}</p></div>')
 
-def hero():
+def hero(plant_count=0, log_count=0, analysis_count=0):
     today = datetime.now(ZoneInfo("Asia/Seoul"))
-    with st.container(key="garden_hero"):
-        left, right = st.columns([1.5, 1], gap="small", vertical_alignment="center")
-        with left:
-            st.html(f'<div class="hero-copy">'
-            f'<span class="eyebrow">MY LITTLE GARDEN · {today:%Y.%m.%d}</span>'
-            '<h1>오늘의 작은 관찰,<br>내 식물의 다음 한 걸음.</h1>'
-            '<p>사진과 관리 기록을 쌓고,<br>이 식물에 맞는 다음 행동을 함께 찾아요.</p>'
-            '<span class="hero-foot">GROW A LITTLE, EVERY DAY</span></div>')
-        with right:
-            st.image(str(ROOT / "assets" / "botanical.svg"), width="stretch")
+    illustration = b64encode((ROOT / "assets" / "botanical.svg").read_bytes()).decode("ascii")
+    st.html(f'<section class="home-welcome" aria-label="내 정원 요약">'
+            f'<div class="home-welcome-copy"><span class="home-date">{today.month}월 {today.day}일 · 나의 작은 정원</span>'
+            '<h1>초록과 함께하는 하루</h1>'
+            '<p>오늘의 작은 변화를 기록해 보세요.</p>'
+            f'<div class="home-totals"><span>식물 <b>{plant_count}</b></span>'
+            f'<span>관리 기록 <b>{log_count}</b></span><span>AI 관찰 <b>{analysis_count}</b></span></div></div>'
+            f'<div class="home-botanical" aria-hidden="true"><img alt="" src="data:image/svg+xml;base64,{illustration}"></div></section>')
 
 def plant_photo(store, plant, detail=False):
     with st.container(key=f"photo_{'detail' if detail else 'card'}_{plant['id']}"):
