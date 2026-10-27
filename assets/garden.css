@@ -1,4 +1,42 @@
 :root { --garden-ink:#254632; --garden-soft:#72806e; --garden-line:#e3e7dc; }
+/* Home uses a compact summary and two clear destinations: care, then plants. */
+.home-welcome { display:flex; align-items:center; justify-content:space-between; gap:24px; min-height:184px; padding:26px 32px; margin:0 0 22px; border:1px solid #e3eadc; border-radius:22px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
+.home-welcome-copy { min-width:0; }
+.home-date { color:#586e50; font-size:12px; font-weight:500; }
+.home-welcome h1 { margin:10px 0 8px; padding:0; color:#254632; font-size:30px; font-weight:700; letter-spacing:-1.2px; line-height:1.35; }
+.home-welcome p { margin:0; color:#586e50; font-size:14px; line-height:1.65; }
+.home-botanical { flex:0 0 150px; height:150px; }
+.home-botanical img { width:100%; height:100%; object-fit:contain; }
+.home-totals { display:flex; gap:0; flex-wrap:wrap; margin-top:20px; color:#586e50; font-size:12px; line-height:1.8; }
+.home-totals > span + span { border-left:1px solid #cedbc4; margin-left:16px; padding-left:16px; }
+.home-totals b { color:#254632; font-size:15px; margin-left:5px; font-weight:650; }
+.st-key-home_actions { margin-bottom:12px; }
+.st-key-home_actions button, .st-key-home_collection button { font-size:14px; min-height:44px; }
+.st-key-home_today, .st-key-home_guide { height:100%; border:1px solid #e2e8dc; border-radius:18px; padding:22px !important; background:#fff; }
+.st-key-home_today h3, .st-key-home_collection_heading h3 { font-size:21px !important; padding:0; margin:0; }
+.st-key-home_guide { background:#f0f5e9; border-color:#e0e9d6; }
+.home-guide-label { color:#54734a; font-size:12px; font-weight:600; margin-bottom:12px; }
+.st-key-home_guide h3 { font-size:21px !important; padding:0; margin:0 0 9px; line-height:1.45; }
+.st-key-home_guide p { font-size:14px; color:#566b50; line-height:1.8; margin:0 0 12px; }
+.st-key-home_guide [data-testid="stCaptionContainer"] p, .st-key-home_today [data-testid="stCaptionContainer"] p { font-size:12px; line-height:1.65; color:#63715e; }
+.home-schedule-empty { padding:12px 0 5px; }
+.home-schedule-empty b { color:#3e563b; font-size:15px; font-weight:550; }
+.home-schedule-empty p { font-size:13px; color:#63715e; line-height:1.7; margin:6px 0; }
+.st-key-home_today [class*="st-key-due_card_"] { background:#f8faf5; border:0; border-radius:12px; padding:12px 14px !important; }
+.home-due-meta { color:#5c7152; font-size:12px; line-height:1.65; overflow-wrap:anywhere; }
+.home-due-title { color:#2d4430; font-size:14px; font-weight:600; line-height:1.6; margin-top:4px; overflow-wrap:anywhere; }
+.st-key-home_collection { margin-top:12px; }
+.st-key-home_collection_heading { margin-bottom:8px; }
+.st-key-home_collection_heading [data-testid="stCaptionContainer"] p { margin:4px 0 0; color:#65735e; font-size:13px; }
+.st-key-home_collection [class*="st-key-plant_card_"] { padding:12px !important; border:1px solid #e2e8dc; border-radius:18px !important; }
+.st-key-home_collection .plant-card-copy { padding:12px 4px 0; }
+.st-key-home_collection .plant-card-copy h3 { font-size:20px !important; }
+.st-key-home_collection .plant-card-copy p { color:#65735e; margin-bottom:10px; }
+.st-key-home_collection .card-counts { margin:8px 0 2px; color:#65735e; }
+.st-key-home_collection [class*="st-key-photo_card_"] [data-testid="stImage"] img { height:174px; }
+.home-empty { padding:40px 20px; text-align:center; border:1px dashed #cad9bf; border-radius:18px; background:#f4f7ef; }
+.home-empty h3 { font-size:20px !important; margin:0 0 8px; }
+.home-empty p { font-size:14px; color:#5d7253; margin:0; line-height:1.7; }
 .stApp { background:#fafbf6; }
 [data-testid="stMainBlockContainer"] { max-width:1180px; padding:4.5rem 2rem 3rem; }
 [data-testid="stSidebar"] { background:#eff3e9; border-right:1px solid #e1e7d9; }
@@ -122,6 +160,22 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
   .detail-copy { padding:24px; }
 }
 @media(max-width:600px) {
+  .home-welcome { min-height:0; padding:22px 20px; margin-bottom:18px; gap:8px; }
+  .home-welcome h1 { font-size:25px; letter-spacing:-.9px; margin:9px 0 8px; }
+  .home-welcome p { font-size:13px; }
+  .home-botanical { display:none; }
+  .home-totals { margin-top:16px; font-size:12px; }
+  .home-totals > span + span { margin-left:12px; padding-left:12px; }
+  .st-key-home_today, .st-key-home_guide { padding:18px !important; }
+  .st-key-home_actions button, .st-key-home_collection button { min-height:48px; }
+  .st-key-home_guide .home-guide-label { display:none; }
+  .st-key-home_guide h3 { font-size:18px !important; }
+  .st-key-home_guide [data-testid="stHtml"] p { display:none; }
+  .st-key-home_collection_heading [data-testid="stHorizontalBlock"], [class*="st-key-home_due_row_"] [data-testid="stHorizontalBlock"] { flex-wrap:nowrap; align-items:center; }
+  .st-key-home_collection_heading [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child, [class*="st-key-home_due_row_"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child { width:auto !important; flex:1 1 0 !important; }
+  .st-key-home_collection_heading [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child, [class*="st-key-home_due_row_"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:last-child { width:104px !important; flex:0 0 104px !important; }
+  .st-key-home_collection_heading h3 { font-size:20px !important; }
+  .st-key-home_collection [class*="st-key-photo_card_"] [data-testid="stImage"] img { height:192px; }
   [data-testid="stCaptionContainer"] p { font-size:13px; line-height:1.7; }
   .card-counts, .care-chip, .plant-card-copy p, .partner-meta { font-size:13px; line-height:1.65; }
   [data-testid="stLinkButton"] a { min-height:48px; font-size:14px; }

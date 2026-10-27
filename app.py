@@ -106,46 +106,46 @@ def register_plant():
             st.rerun()
 
 def garden():
-    ui.hero()
     records = {p["id"]: store.list_logs(p["id"]) for p in plants}
     analyses = {p["id"]: store.list_analyses(p["id"]) for p in plants}
-    with st.container(key="garden_stats"):
-        columns = st.columns(3)
-        with columns[0]:
-            ui.stat("함께 키우는 식물", f"{len(plants)}개", "나의 초록 동반자")
-        with columns[1]:
-            ui.stat("쌓인 관리 기록", f"{sum(map(len, records.values()))}건", "물주기부터 작은 관찰까지")
-        with columns[2]:
-            ui.stat("AI 관찰", f"{sum(map(len, analyses.values()))}건", "기록을 참고한 관리 제안")
-    garden_schedule_summary(store)
-    st.subheader("오늘, 이렇게 시작해요")
-    st.caption("물주기 날짜만으로 필요한 관리를 정하지 않아요. 현재 모습과 흙 상태를 먼저 확인해 주세요.")
-    if plants:
-        for plant in plants[:3]:
-            followups = [s for s in store.list_suggestions(plant['id']) if s['execution'] and not s['observations']]
-            with st.container(border=True):
-                st.write(f"**{plant['name']}**")
-                st.caption("실행한 관리 이후의 변화가 아직 기록되지 않았어요." if followups else "오늘 확인한 흙 상태나 잎의 모습을 짧게 남겨보세요.")
-                if followups:
-                    st.button("관리 후 변화 남기기", key=f"today_{plant['id']}", width="stretch", on_click=ui.start_record, args=(plant['id'], followups[0]['id'], "실행 후 경과"))
-                else:
-                    st.button("오늘 상태 남기기", key=f"today_{plant['id']}", width="stretch", on_click=ui.start_record, args=(plant['id'],))
-    else:
-        st.info("첫 식물을 등록하면 사진과 관리 기록을 차곡차곡 남길 수 있어요. 실제 식물이 없다면 AI 비교의 예시 사례로 먼저 둘러보세요.")
-    st.write("")
-    st.subheader("나의 식물들")
-    st.caption("식물을 선택해 최근 변화와 관리 기록을 살펴보세요.")
-    for start in range(0, len(plants) + 1, 2):
-        slots = st.columns(2)
-        for offset, slot in enumerate(slots):
-            index = start + offset
-            with slot:
-                if index < len(plants):
-                    plant = plants[index]
+    ui.hero(len(plants), sum(map(len, records.values())), sum(map(len, analyses.values())))
+    with st.container(key="home_actions"):
+        today, guide = st.columns([1.6, 1], gap="medium")
+        with today, st.container(border=True, key="home_today"):
+            garden_schedule_summary(store)
+            followups = [(p, s) for p in plants for s in store.list_suggestions(p['id'])
+                         if s['execution'] and not s['observations']]
+            if followups:
+                with st.expander(f"관리 후 변화도 확인해 주세요 · {len(followups)}건"):
+                    for plant, suggestion in followups[:3]:
+                        st.write(plant['name'])
+                        st.button("관리 후 변화 남기기", key=f"home_followup_{suggestion['id']}", width="stretch",
+                                  on_click=ui.start_record, args=(plant['id'], suggestion['id'], "실행 후 경과"))
+        with guide, st.container(border=True, key="home_guide"):
+            st.html('<div class="home-guide-label">작은 관찰, 함께하는 AI</div>'
+                    '<h3>오늘 모습이 궁금한가요?</h3>'
+                    '<p>사진과 쌓인 기록을 바탕으로<br>다음에 확인할 일을 함께 찾아요.</p>')
+            if plants:
+                st.button("내 식물 AI로 살펴보기", key="home_ai", width="stretch",
+                          on_click=ui.open_tab, args=(plants[0]['id'], 'AI 분석'))
+                st.caption(f"{plants[0]['name']} · 분석 화면에서 식물 상태를 입력해 주세요.")
+            else:
+                st.button("예시로 먼저 둘러보기", key="home_demo", width="stretch", on_click=ui.navigate, args=(-2,))
+    with st.container(key="home_collection"):
+        with st.container(key="home_collection_heading"):
+            title, action = st.columns([3, 1], vertical_alignment="center")
+            with title:
+                st.subheader("나의 식물")
+                st.caption("함께 쌓아가는 초록의 기록")
+            with action:
+                st.button("＋ 식물 등록", key="garden_add", width="stretch", on_click=ui.navigate, args=(0,))
+        if not plants:
+            st.html('<div class="home-empty"><h3>첫 번째 초록을 만나보세요</h3>'
+                    '<p>식물을 등록하고 사진과 오늘의 관찰을 남겨보세요.</p></div>')
+        for start in range(0, len(plants), 3):
+            for plant, slot in zip(plants[start:start + 3], st.columns(3, gap="medium")):
+                with slot:
                     ui.plant_card(store, plant, records[plant["id"]], analyses[plant["id"]])
-                elif index == len(plants):
-                    st.html('<div class="add-plant-card"><b>＋</b><h3>새로운 초록을 만나보세요</h3><p>작은 화분 하나가<br>새로운 이야기의 시작이 돼요.</p></div>')
-                    st.button("＋ 새 식물 등록", key="garden_add", width="stretch", on_click=ui.navigate, args=(0,))
 
 def plant_detail(plant):
     if target := st.session_state.pop(f"care_after_save_{plant['id']}", None):

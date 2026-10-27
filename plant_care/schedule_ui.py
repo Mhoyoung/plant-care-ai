@@ -21,19 +21,31 @@ def due_label(schedule):
 
 def garden_schedule_summary(store):
     schedules = [item for item in store.list_schedules() if item['status'] == 'pending']
-    st.subheader('다가오는 케어')
+    st.subheader('오늘 챙길 일')
     if not schedules:
-        st.caption('식물 상세의 케어 일정에서 다음에 확인할 일을 정해 보세요.')
+        st.html('<div class="home-schedule-empty"><b>예정된 케어가 없어요</b>'
+                '<p>식물의 현재 모습과 흙 상태부터 살펴보세요.</p></div>')
+        plants = store.list_plants()
+        if plants:
+            st.button('오늘 상태 남기기', key=f"today_{plants[0]['id']}", width='stretch',
+                      on_click=ui.start_record, args=(plants[0]['id'],))
+            st.caption(f"{plants[0]['name']} · 다른 식물은 아래 카드에서 선택하세요.")
+        else:
+            st.caption('식물을 등록하면 기록과 케어 일정을 함께 관리할 수 있어요.')
         return
     today = today_in_seoul().isoformat()
     due = sum(item['due_on'] <= today for item in schedules)
     st.caption(f'오늘까지 확인할 일정 {due}건 · 전체 예정 {len(schedules)}건')
     for item in schedules[:3]:
         with st.container(border=True, key=f"due_card_{item['id']}"):
-            st.caption(due_label(item))
-            st.write(f"**{item['plant_name']} · {item['title']}**")
-            st.button('일정 살펴보기', key=f"due_open_{item['id']}", width='stretch',
-                      on_click=ui.open_tab, args=(item['plant_id'], '케어 일정'))
+            with st.container(key=f"home_due_row_{item['id']}"):
+                copy, action = st.columns([3, 1], vertical_alignment='center')
+                with copy:
+                    st.html(f'<div class="home-due-meta">{escape(due_label(item))} · {escape(item["plant_name"])}</div>'
+                            f'<div class="home-due-title">{escape(item["title"])}</div>')
+                with action:
+                    st.button('일정 보기', key=f"due_open_{item['id']}", width='stretch',
+                              on_click=ui.open_tab, args=(item['plant_id'], '케어 일정'))
     if len(schedules) > 3:
         st.caption('나머지 일정은 각 식물의 케어 일정에서 확인할 수 있어요.')
 
