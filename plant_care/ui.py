@@ -54,7 +54,7 @@ def plant_photo(store, plant, detail=False):
         else:
             st.image(str(ROOT / 'assets' / 'botanical.svg'), width='stretch')
         if not plant["photo_path"]:
-            st.caption("등록 사진이 없는 식물의 예시 일러스트")
+            st.caption("등록 사진 없음 · 예시 그림" if detail else "등록 사진이 없는 식물의 예시 일러스트")
 
 def display_photo(store, relative, width):
     try:
@@ -85,15 +85,23 @@ def plant_card(store, plant, logs, analyses):
 
 def detail_hero(store, plant):
     with st.container(key="plant_detail_hero"):
-        left, right = st.columns([1, 2], gap="medium", vertical_alignment="center")
-        with left:
-            plant_photo(store, plant, True)
-        with right:
-            st.html('<div class="detail-copy"><span class="eyebrow">PLANT JOURNAL</span>'
-            f'<h1>{escape(plant["name"])}</h1><div class="plant-meta">{escape(plant["species"] or "종류 미입력")}'
-            f' <span> / </span> {escape(plant["location"] or "장소 미입력")}</div>'
-            f'<p>{escape(plant["notes"] or "이 식물과 함께한 작은 변화를 기록해 보세요.")}</p>'
-            '<span class="detail-foot">하나의 식물, 쌓여가는 이야기</span></div>')
+        with st.container(key="detail_identity"):
+            left, right = st.columns([1, 3], gap="medium", vertical_alignment="center")
+            with left:
+                plant_photo(store, plant, True)
+            with right:
+                st.html('<div class="detail-copy"><span class="home-date">나의 식물</span>'
+                        f'<h1>{escape(plant["name"])}</h1><div class="detail-tags">'
+                        f'<span>{escape(plant["species"] or "종류 미입력")}</span>'
+                        f'<span>{escape(plant["location"] or "장소 미입력")}</span></div></div>')
+        last_watered = store.last_watered(plant["id"])
+        st.html('<dl class="detail-summary">'
+                f'<div><dt>마지막 물주기</dt><dd title="{escape(watering_label(last_watered), quote=True)}">{escape(last_watered or "기록 없음")}</dd></div>'
+                f'<div><dt>관리 기록</dt><dd>{len(store.list_logs(plant["id"]))}<small>건</small></dd></div>'
+                f'<div><dt>AI 관찰</dt><dd>{len(store.list_analyses(plant["id"]))}<small>건</small></dd></div></dl>')
+        if plant["notes"]:
+            with st.expander("식물 메모"):
+                st.html(f'<div class="detail-notes">{escape(plant["notes"])}</div>')
 
 def timeline(store, logs, care_types, outcomes, limit=None):
     if not logs:
