@@ -20,6 +20,42 @@ def click_button(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_detail_overview_shortcuts_keep_records_and_do_not_request_ai(self):
+        from plant_care.time_utils import today_in_seoul
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as api:
+            store = PlantStore(folder)
+            plant = store.add_plant("상세 확인", notes="<b>원문 메모</b>\n" + "긴 메모 " * 200)
+            saved_notes = store.get_plant(plant)["notes"]
+            store.add_log(plant, "observation", today_in_seoul(), "가상 기록")
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.button(key=f"open_plant_{plant}").click().run()
+            self.assertTrue(any(e.label == "식물 메모" for e in app.expander))
+            app.button(key="detail_more_records").click().run()
+            self.assertEqual(app.session_state[f"plant_tabs_{plant}"], "관리 기록")
+            app.button(key="detail_more_ai").click().run()
+            self.assertEqual(app.session_state[f"plant_tabs_{plant}"], "AI 분석")
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(len(store.list_logs(plant)), 1)
+            self.assertEqual(store.list_analyses(plant), [])
+            self.assertEqual(store.get_plant(plant)["notes"], saved_notes)
+            api.assert_not_called()
+
+    def test_empty_detail_first_observation_is_an_unsaved_draft(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as api:
+            store = PlantStore(folder)
+            plant = store.add_plant("처음 만난 식물")
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.button(key=f"open_plant_{plant}").click().run()
+            app.button(key="detail_first_record").click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(app.session_state[f"plant_tabs_{plant}"], "관리 기록")
+            self.assertEqual(app.selectbox(key="care_kind").value, "observation")
+            self.assertEqual(store.list_logs(plant), [])
+            self.assertIsNone(store.last_watered(plant))
+            api.assert_not_called()
+
     def test_home_ai_shortcut_only_opens_analysis_without_request_or_write(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
                 patch("plant_care.ai_ui.analyze") as api:

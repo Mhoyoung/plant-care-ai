@@ -151,46 +151,51 @@ def plant_detail(plant):
     if target := st.session_state.pop(f"care_after_save_{plant['id']}", None):
         open_care(plant["id"], *target)
     st.button("← 내 정원", key="back_to_garden", type="tertiary", on_click=ui.navigate, args=(-1,))
+    ui.detail_hero(store, plant)
     with st.container(key="detail_actions"):
         actions = st.columns(2, gap="small")
         actions[0].button("오늘 상태 남기기", key="detail_record", width="stretch", type="primary", on_click=ui.start_record, args=(plant['id'],))
         actions[1].button("AI로 살펴보기", key="detail_ai", width="stretch", on_click=ui.open_tab, args=(plant['id'], "AI 분석"))
-    ui.detail_hero(store, plant)
     logs = store.list_logs(plant["id"])
     analyses = store.list_analyses(plant["id"])
-    last_watered = store.last_watered(plant["id"])
-    with st.container(key="detail_stats"):
-        columns = st.columns(3)
-        with columns[0]:
-            ui.stat("마지막 물주기", last_watered or "기록 없음", ui.watering_label(last_watered))
-        with columns[1]:
-            ui.stat("관리 기록", f"{len(logs)}건", "이 식물과 함께한 순간")
-        with columns[2]:
-            ui.stat("AI 관찰", f"{len(analyses)}건", "저장한 분석 결과")
-    overview, care, ai, schedules = st.tabs(["한눈에 보기", "관리 기록", "AI 분석", "케어 일정"], key=f"plant_tabs_{plant['id']}", on_change="rerun")
+    with st.container(key="detail_workspace"):
+        overview, care, ai, schedules = st.tabs(["한눈에 보기", "관리 기록", "AI 분석", "케어 일정"], key=f"plant_tabs_{plant['id']}", on_change="rerun")
     with overview:
-        left, right = st.columns([1.15, 1], gap="large")
-        with left:
-            st.subheader("최근의 작은 변화")
+        left, right = st.columns([1.15, 1], gap="medium")
+        with left, st.container(border=True, key="detail_recent"):
+            st.subheader("최근 관리 기록")
+            st.caption("작은 관찰부터 차곡차곡")
             ui.timeline(store, logs, CARE_TYPES, OUTCOMES, limit=3)
-        with right:
-            st.subheader("최근 AI 관찰")
-            if analyses:
-                latest_result = analyses[0]['result']
-                partner_note(latest_result['summary'], analyses[0]['input'], latest_result['checks'][0] if latest_result['checks'] else None)
-                st.caption("전체 제안과 확인할 사항은 AI 분석 탭에서 살펴보세요.")
+            if logs:
+                st.button("관리 기록 더 보기", key="detail_more_records", width="stretch",
+                          on_click=ui.open_tab, args=(plant['id'], '관리 기록'))
             else:
-                st.html('<div class="quiet-empty"><span>이 식물에 대해 궁금한 게 있나요?</span><p>AI 분석 탭에서 현재 모습과 기록을 함께 살펴보세요.</p></div>')
+                st.button("첫 관찰 남기기", key="detail_first_record", width="stretch",
+                          on_click=ui.start_record, args=(plant['id'],))
+        with right:
+            with st.container(border=True, key="detail_ai_summary"):
+                st.subheader("AI와 함께 살펴보기")
+                if analyses:
+                    latest_result = analyses[0]['result']
+                    partner_note(latest_result['summary'], analyses[0]['input'], latest_result['checks'][0] if latest_result['checks'] else None)
+                    st.caption("저장된 관찰이에요. 현재 상태와 다를 수 있어요.")
+                else:
+                    st.html('<div class="detail-ai-empty"><b>아직 AI 관찰이 없어요</b>'
+                            '<p>현재 모습과 쌓인 기록을 바탕으로<br>다음에 확인할 일을 함께 찾아요.</p></div>')
+                st.button("분석 자세히 보기" if analyses else "AI 분석 열기", key="detail_more_ai", width="stretch",
+                          on_click=ui.open_tab, args=(plant['id'], 'AI 분석'))
             followed = [s for s in store.list_suggestions(plant["id"]) if s["execution"]][:3]
             if followed:
-                st.subheader("제안 이후의 변화")
-                for suggestion in followed:
-                    suggestion_card(store, suggestion, "overview")
+                with st.container(key="detail_followups"):
+                    st.subheader("관리 후 변화")
+                    st.caption("실제로 관리한 뒤 관찰한 내용을 이어 남겨요.")
+                    for suggestion in followed:
+                        suggestion_card(store, suggestion, "overview")
     with care:
-        left, right = st.columns(2, gap="large")
+        left, right = st.columns(2, gap="medium")
         with left:
             care_form(store, plant["id"])
-        with right:
+        with right, st.container(border=True, key="detail_care_timeline"):
             st.subheader("관리 타임라인")
             st.caption("남겨둔 기록을 시간순으로 모았어요.")
             ui.timeline(store, logs, CARE_TYPES, OUTCOMES)
@@ -198,8 +203,9 @@ def plant_detail(plant):
         render_analysis(store, plant, on_refresh=refresh_team_records)
     with schedules:
         render_schedules(store, plant)
-    st.divider()
-    download(store, "이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
+    with st.container(key="detail_archive"), st.expander("이 식물의 기록 보관"):
+        st.caption("관리 기록과 AI 분석을 JSON 파일로 보관해요. 사진까지 보관하려면 메뉴의 전체 정원 백업을 이용해 주세요.")
+        download(store, "이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
 
 default_view = st.session_state.get("_main_tab_target", "내 정원" if plants else "새 식물")
 generation = st.session_state.get("_main_nav_generation", 0)
