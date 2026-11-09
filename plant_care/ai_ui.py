@@ -24,21 +24,29 @@ def api_key() -> str:
 
 
 def render_analysis(store, plant, on_refresh=None):
-    st.subheader("지금 모습, 함께 살펴볼까요?")
-    st.caption("사진 한 장과 쌓아둔 기록에서 다음 관리의 실마리를 찾아보세요.")
+    analyses = store.list_analyses(plant["id"])
+    with st.container(key="analysis_workspace"):
+        st.html('<section class="analysis-intro" aria-label="AI 분석 안내">'
+                '<span class="analysis-label">AI 식물 파트너</span>'
+                '<h3>지금 모습, 함께 살펴볼까요?</h3>'
+                '<p>사진과 쌓인 기록에서 다음에 확인할 일을 찾아요.</p>'
+                '<ol class="analysis-steps" aria-label="분석 순서">'
+                '<li><span>1</span>상태 입력</li><li><span>2</span>전송 확인</li>'
+                '<li><span>3</span>결과 살펴보기</li></ol></section>')
+        with st.container(key="analysis_draft"), st.expander("새 AI 분석 요청", expanded=not analyses):
+            _analysis_request(store, plant, on_refresh)
+        _analysis_history(store, plant)
+
+
+def _analysis_request(store, plant, on_refresh):
     region = region_settings(store, plant['id'])
     key = api_key()
     if not key:
-        st.info("Gemini API 키를 설정하면 분석을 사용할 수 있어요. 키는 .streamlit/secrets.toml에 입력하세요.")
-    with st.expander("분석에 사용하는 정보와 무료 구간 안내"):
-        st.caption("현재 상태와 최근 관리 기록 최대 30건, 이전 제안 최대 10건과 각 제안의 최근 경과 3건, 선택한 사진 1장을 Google Gemini로 보냅니다. "
-                   "선택한 경우 지역 실외 날씨도 함께 보냅니다. 무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
-        st.caption("무료 사용은 AI Studio의 Free Tier 프로젝트에서 설정해 주세요. "
-                   "앱은 결제 상태를 확인할 수 없으며, 결제를 연결한 프로젝트의 키는 과금될 수 있어요.")
-        st.caption(f"사용 모델: {MODEL} · 버튼을 누를 때만 호출")
-        st.markdown('[프로젝트·모델의 실제 요청 한도 확인](https://aistudio.google.com/rate-limit) · [429 원인별 안내](https://ai.google.dev/gemini-api/docs/api-errors?hl=ko)')
+        st.info("AI 분석 연결을 준비 중이에요. 관리자에게 연결 설정을 확인해 달라고 요청해 주세요.")
     with st.form(f"analysis_{plant['id']}"):
-        left, right = st.columns([1.2, 1], gap="large")
+        st.html('<div class="analysis-form-heading">현재 상태와 사진</div>'
+                '<p class="analysis-form-hint">잎·흙·최근 변화 중 직접 확인한 내용을 알려주세요. 사진은 선택이에요.</p>')
+        left, right = st.columns([1.2, 1], gap="medium")
         with left:
             state = st.text_area("지금 상태와 궁금한 점", max_chars=3000, height=145,
                              placeholder="예: 잎이 처져 있어요. 물을 더 줘야 할까요?", key="ai_state")
@@ -51,8 +59,17 @@ def render_analysis(store, plant, on_refresh=None):
         if region:
             st.caption(f'{REGIONS[region][0]}의 대표 좌표로 Open-Meteo에 날씨를 요청하고, 받은 날씨를 Gemini 분석에 포함합니다.')
         else:
-            st.caption('날씨를 함께 참고하려면 위에서 지역을 저장해 주세요.')
-        consent = st.checkbox("전송 안내를 확인했고, 선택한 사진과 식물·관리 기록·이전 제안 및 경과와 선택한 경우 지역 날씨를 Google로 보내 분석합니다.", key="ai_consent")
+            st.caption('날씨도 참고하려면 위의 지역 설정을 펼쳐 도시를 저장해 주세요.')
+        st.html('<div class="analysis-confirm-heading">전송 전에 확인해 주세요</div>')
+        st.caption('입력한 상태·관리 기록·이전 제안과 경과를 Google Gemini로 보냅니다. 사진과 날씨는 선택한 경우에만 포함해요.')
+        with st.expander("분석에 사용하는 정보와 무료 구간 안내"):
+            st.caption("현재 상태와 최근 관리 기록 최대 30건, 이전 제안 최대 10건과 각 제안의 최근 경과 3건, 선택한 사진 1장을 Google Gemini로 보냅니다. "
+                       "선택한 경우 지역 실외 날씨도 함께 보냅니다. 무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
+            st.caption("무료 사용은 AI Studio의 Free Tier 프로젝트에서 설정해 주세요. "
+                       "앱은 결제 상태를 확인할 수 없으며, 결제를 연결한 프로젝트의 키는 과금될 수 있어요.")
+            st.caption(f"사용 모델: {MODEL} · 버튼을 누를 때만 호출")
+            st.markdown('[프로젝트·모델의 실제 요청 한도 확인](https://aistudio.google.com/rate-limit) · [429 원인별 안내](https://ai.google.dev/gemini-api/docs/api-errors?hl=ko)')
+        consent = st.checkbox("사진·식물 기록과 선택한 날씨를 Google로 보내 분석하는 데 동의해요.", key="ai_consent")
         submit = st.form_submit_button("Gemini로 분석", type="primary", disabled=not bool(key), width="stretch", on_click=on_refresh)
     if submit:
         if not consent:
@@ -87,27 +104,38 @@ def render_analysis(store, plant, on_refresh=None):
             except OSError:
                 st.error("분석할 사진을 읽지 못했어요. 사진 파일을 확인해 주세요.")
 
+
+
+def _analysis_history(store, plant):
     analyses = store.list_analyses(plant["id"])
     suggestions = store.list_suggestions(plant["id"])
-    st.write("")
-    st.subheader("쌓아둔 AI 관찰")
-    st.caption(f"저장된 분석 {len(analyses)}건 · AI 제안은 실제 관리 기록과 구분해서 보관합니다.")
-    for index, analysis in enumerate(analyses):
-        timestamp = datetime.fromisoformat(analysis["created_at"]).astimezone(ZoneInfo("Asia/Seoul"))
-        with st.expander(f"{timestamp:%Y.%m.%d %H:%M} · {'최근 관찰' if index == 0 else '지난 관찰'}", expanded=index == 0):
-            result = analysis["result"]
-            render_insight(result, analysis['input'], f"analysis_{analysis['id']}", store=store,
-                           suggestions=[s for s in suggestions if s['analysis_id'] == analysis['id']])
-            if weather := analysis['input'].get('outdoor_weather'):
-                with st.expander('분석 당시 참고한 지역 날씨'):
-                    show_weather(weather)
-            with st.expander("분석 당시 기록·사진 보기"):
-                st.write(f"분석 당시 질문: {analysis['input']['current_state']}")
-                previous = analysis["input"].get("previous_suggestions", [])
-                st.caption(f"분석 당시 참고한 이전 제안 {len(previous)}건 · 실행과 경과를 구분해 반영")
-                if previous:
-                    st.json(previous)
-                if analysis["photo_path"]:
-                    display_photo(store, analysis['photo_path'], width=320)
-                st.caption(f"참고 기록 {len(analysis['input']['recent_care_logs'])}건 · 모델 {analysis['model']} · "
-                           f"응답에 포함된 전체 토큰: {analysis['usage'].get('total_tokens', '정보 없음')}")
+    with st.container(key="analysis_history"):
+        st.html('<div class="analysis-history-heading"><h3>쌓아둔 AI 관찰</h3>'
+                f'<span>{len(analyses)}건</span></div>')
+        st.caption("저장 당시의 관찰이에요. AI 제안과 실제로 한 관리 기록은 구분해서 보관해요.")
+        if not analyses:
+            st.html('<div class="analysis-empty"><b>아직 저장된 AI 관찰이 없어요</b>'
+                    '<p>현재 상태를 입력하고 분석하면<br>이 식물의 관찰을 여기에서 이어볼 수 있어요.</p></div>')
+        for index, analysis in enumerate(analyses):
+            _saved_analysis(store, analysis, index, suggestions)
+
+
+def _saved_analysis(store, analysis, index, suggestions):
+    timestamp = datetime.fromisoformat(analysis["created_at"]).astimezone(ZoneInfo("Asia/Seoul"))
+    with st.expander(f"{timestamp:%Y.%m.%d %H:%M} · {'최근 관찰' if index == 0 else '지난 관찰'}", expanded=index == 0):
+        result = analysis["result"]
+        render_insight(result, analysis['input'], f"analysis_{analysis['id']}", store=store,
+                       suggestions=[s for s in suggestions if s['analysis_id'] == analysis['id']])
+        if weather := analysis['input'].get('outdoor_weather'):
+            with st.expander('분석 당시 참고한 지역 날씨'):
+                show_weather(weather)
+        with st.expander("분석 당시 기록·사진 보기"):
+            st.write(f"분석 당시 질문: {analysis['input']['current_state']}")
+            previous = analysis["input"].get("previous_suggestions", [])
+            st.caption(f"분석 당시 참고한 이전 제안 {len(previous)}건 · 실행과 경과를 구분해 반영")
+            if previous:
+                st.json(previous)
+            if analysis["photo_path"]:
+                display_photo(store, analysis['photo_path'], width=320)
+            st.caption(f"참고 기록 {len(analysis['input']['recent_care_logs'])}건 · 모델 {analysis['model']} · "
+                       f"응답에 포함된 전체 토큰: {analysis['usage'].get('total_tokens', '정보 없음')}")
