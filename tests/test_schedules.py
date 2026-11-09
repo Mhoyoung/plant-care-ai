@@ -40,11 +40,48 @@ class ScheduleTests(unittest.TestCase):
             app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
             app.selectbox(key='selected_plant').select(self.plant).run()
             self.assertEqual(len(app.exception), 0)
-            self.assertTrue(any('아직 예정된 케어 일정이 없어요' in item.value for item in app.info))
-            self.assertNotIn('＋ 새 케어 일정', [item.label for item in app.expander])
+            self.assertTrue(any('아직 예정된 케어 일정이 없어요' in item.proto.body for item in app.get('html')))
+            creator = next(item for item in app.expander if item.label == '＋ 새 케어 일정')
+            self.assertTrue(creator.proto.expanded)
             self.assertEqual(app.text_input(key=f'schedule_new_{self.plant}_0_title').value, '')
             app.button(key=f'schedule_analysis_{self.plant}').click().run()
             self.assertEqual(app.session_state[f'plant_tabs_{self.plant}'], 'AI 분석')
+            ai.assert_not_called()
+
+    def test_due_groups_keep_every_pending_calendar_and_do_not_write(self):
+        titles = ['지난 흙 확인', '오늘 잎 확인', '다음 환경 확인']
+        for offset, title in zip((-2, 0, 3), titles):
+            self.store.add_schedule(self.plant, title, 'observation', today_in_seoul() + timedelta(days=offset))
+        original = self.store.list_schedules()
+        with patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': self.folder.name, 'STORAGE_BACKEND': 'local'}), \
+                patch('plant_care.ai_ui.analyze') as ai:
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            app.selectbox(key='selected_plant').select(self.plant).run()
+            links = [e for e in app.get('link_button') if e.label == 'Google 캘린더에 추가']
+            self.assertEqual(len(links), 3)
+            actual_titles = {parse_qs(urlparse(e.proto.url).query)['text'][0] for e in links}
+            self.assertEqual(actual_titles, {'테스트 식물 · ' + title for title in titles})
+            self.assertEqual(self.store.list_schedules(), original)
+            self.assertEqual(self.store.list_logs(self.plant), [])
+            self.assertEqual(len(app.exception), 0)
+            ai.assert_not_called()
+
+    def test_completed_history_opens_records_without_a_second_completion(self):
+        sid = self.add()
+        self.store.complete_schedule(sid, 'observation', today_in_seoul(), '가상 관찰 기록')
+        cancelled = self.add()
+        self.store.cancel_schedule(cancelled)
+        original_schedules = self.store.list_schedules()
+        original_logs = self.store.list_logs(self.plant)
+        with patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': self.folder.name, 'STORAGE_BACKEND': 'local'}), \
+                patch('plant_care.ai_ui.analyze') as ai:
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            app.selectbox(key='selected_plant').select(self.plant).run()
+            app.button(key=f'schedule_history_log_{sid}').click().run()
+            self.assertEqual(app.session_state[f'plant_tabs_{self.plant}'], '관리 기록')
+            self.assertEqual(self.store.list_schedules(), original_schedules)
+            self.assertEqual(self.store.list_logs(self.plant), original_logs)
+            self.assertEqual(len(app.exception), 0)
             ai.assert_not_called()
 
     def test_saved_ai_candidate_is_discoverable_inside_schedule_tab_without_auto_save(self):
