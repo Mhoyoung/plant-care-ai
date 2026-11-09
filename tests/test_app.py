@@ -20,6 +20,53 @@ def click_button(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_care_history_filters_without_writes_and_keeps_full_notes_and_links(self):
+        from plant_care.gemini import analysis_context
+        from plant_care.time_utils import today_in_seoul
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as ai, patch("plant_care.ai_ui.fetch_weather") as weather:
+            store = PlantStore(folder)
+            plant = store.add_plant('일지 시험')
+            store.add_analysis(plant, 'fixture', analysis_context(store, plant, '가상 질문', False), RESULT, {})
+            sid = store.list_suggestions(plant)[0]['id']
+            notes = '<b>원문</b>\n' + '긴 관찰 기록 ' * 180
+            store.add_log(plant, 'watering', today_in_seoul(), '일반 물주기')
+            store.add_log(plant, 'observation', today_in_seoul(), notes, photo=test_photo_bytes(), suggestion_id=sid, link_type='execution')
+            original = store.list_logs(plant)
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            app.button(key=f'open_plant_{plant}').click().run()
+            app.selectbox(key=f'care_history_kind_{plant}').select('observation').run()
+            self.assertEqual(len(app.exception), 0)
+            journal = app.get('html')
+            self.assertTrue(any(('&lt;b&gt;원문&lt;/b&gt;\n' + '긴 관찰 기록 ' * 180).rstrip() in item.proto.body for item in journal))
+            self.assertTrue(any(item.label == '연결된 AI 제안 보기' for item in app.expander))
+            self.assertTrue(any(item.label == '전체 메모 보기' for item in app.expander))
+            app.selectbox(key=f'care_history_kind_{plant}').select('repotting').run()
+            self.assertTrue(any('이 종류의 기록은 아직 없어요' in item.proto.body for item in app.get('html')))
+            app.button(key='detail_record').click().run()
+            creator = next(item for item in app.expander if item.label == '＋ 새 관리 기록')
+            self.assertTrue(creator.proto.expanded)
+            self.assertEqual(app.selectbox(key='care_kind').value, 'observation')
+            app.radio(key=f'care_mode_{plant}').set_value('실행 후 경과').run()
+            app.selectbox(key=f'care_suggestion_{plant}').select(sid).run()
+            self.assertEqual(app.date_input(key='care_date').value, today_in_seoul())
+            self.assertEqual(store.list_logs(plant), original)
+            ai.assert_not_called()
+            weather.assert_not_called()
+
+    def test_first_care_record_is_ready_without_creating_a_record(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as ai:
+            store = PlantStore(folder)
+            plant = store.add_plant('첫 일지')
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            app.button(key=f'open_plant_{plant}').click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertTrue(next(item for item in app.expander if item.label == '＋ 새 관리 기록').proto.expanded)
+            self.assertTrue(any('아직 첫 페이지가 비어 있어요.' in item.proto.body for item in app.get('html')))
+            self.assertEqual(store.list_logs(plant), [])
+            ai.assert_not_called()
+
     def test_saved_ai_view_keeps_history_without_external_requests(self):
         from plant_care.gemini import analysis_context
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \

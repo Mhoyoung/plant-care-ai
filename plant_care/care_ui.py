@@ -1,5 +1,6 @@
 """AI 제안, 실제 실행, 이후 관찰을 연결하는 화면."""
 from datetime import date, datetime
+from html import escape
 import sqlite3
 from zoneinfo import ZoneInfo
 
@@ -17,6 +18,8 @@ def open_care(plant_id, suggestion_id, mode):
     st.session_state[f"plant_tabs_{plant_id}"] = "관리 기록"
     st.session_state[f"care_mode_{plant_id}"] = mode
     st.session_state[f"care_suggestion_{plant_id}"] = suggestion_id
+    st.session_state[f"care_compose_{plant_id}"] = True
+    st.session_state[f"care_composer_generation_{plant_id}"] = st.session_state.get(f"care_composer_generation_{plant_id}", 0) + 1
     change_care_mode(plant_id)
 
 
@@ -24,7 +27,7 @@ def change_care_mode(plant_id):
     mode = st.session_state[f"care_mode_{plant_id}"]
     st.session_state["care_kind"] = None if mode == MODES[1] else ("observation" if mode == MODES[2] else "watering")
     st.session_state["care_notes"] = ""
-    st.session_state["care_date"] = today_in_seoul()
+    st.session_state.pop("care_date", None)
     st.session_state["care_outcome"] = "unrecorded"
 
 
@@ -74,6 +77,40 @@ def suggestion_card(store, suggestion, prefix):
                           on_click=prepare_ai_schedule, args=(suggestion['plant_id'], suggestion['id']))
 
 
+def render_records(store, plant, logs):
+    """기록 작성과 저장된 관찰을 구분한다. 화면 탐색은 외부 요청이나 저장을 하지 않는다."""
+    from . import ui
+    plant_id = plant['id']
+    mode = st.session_state.get(f'care_mode_{plant_id}', MODES[0])
+    photos = sum(bool(log['photo_path']) for log in logs)
+    latest = escape(logs[0]['occurred_on']) if logs else '아직 없음'
+    with st.container(key='care_workspace'):
+        st.html('<section class="care-intro" aria-label="관리 기록 요약">'
+                '<span class="care-label">나의 식물 일지</span><h3>작은 변화를 차곡차곡</h3>'
+                '<p>실제로 한 관리와 관찰한 변화를 이 식물의 이야기로 남겨요.</p>'
+                f'<div class="care-totals"><span>전체 기록 <b>{len(logs)}</b></span>'
+                f'<span>사진 기록 <b>{photos}</b></span><span>최근 기록 <b>{latest}</b></span></div></section>')
+        generation = st.session_state.get(f'care_composer_generation_{plant_id}', 0)
+        expanded = not logs or mode != MODES[0] or st.session_state.get(f'care_compose_{plant_id}', False)
+        with st.container(key=f'care_composer_{plant_id}_{generation}'), st.expander('＋ 새 관리 기록', expanded=expanded):
+            care_form(store, plant_id)
+        with st.container(key='care_history'):
+            st.html('<div class="care-history-heading"><h3>쌓아둔 관리 기록</h3>'
+                    f'<span>{len(logs)}건</span></div>')
+            st.caption('기록한 날짜를 기준으로 최근 기록부터 보여드려요.')
+            filtered = logs
+            if logs:
+                selected = st.selectbox('기록 종류', [None, *CARE_TYPES],
+                                        format_func=lambda kind: '전체 기록' if kind is None else CARE_TYPES[kind],
+                                        key=f'care_history_kind_{plant_id}')
+                filtered = [log for log in logs if selected is None or log['kind'] == selected]
+                if not filtered:
+                    st.html('<div class="care-empty"><b>이 종류의 기록은 아직 없어요</b>'
+                            '<p>전체 기록을 선택하면 다른 관리와 관찰을 볼 수 있어요.</p></div>')
+            if filtered or not logs:
+                ui.timeline(store, filtered, CARE_TYPES, OUTCOMES, journal=True)
+
+
 def care_form(store, plant_id):
     mode = st.radio("남길 기록", MODES, horizontal=True, key=f"care_mode_{plant_id}",
                     on_change=change_care_mode, args=(plant_id,))
@@ -84,6 +121,7 @@ def care_form(store, plant_id):
         if not eligible:
             st.info("연결할 AI 제안이 없어요. AI 분석 탭에서 분석을 먼저 남겨 주세요." if mode == MODES[1]
                     else "AI 제안에 연결한 실행 기록을 먼저 남겨 주세요.")
+            st.caption('제안과 연결하지 않고 남기려면 일반 기록을 선택해 주세요.')
             return
         choices = {s["id"]: s for s in eligible}
         selection_key = f"care_suggestion_{plant_id}"
@@ -95,7 +133,15 @@ def care_form(store, plant_id):
         if selected is None:
             return
         suggestion = choices[selected]
-        st.info(suggestion["suggestion_text"])
+        st.html('<div class="care-link-note"><b>연결할 AI 제안</b>'
+                f'<p>{escape(suggestion["suggestion_text"])}</p></div>')
+        analyses = {item['id']: item for item in store.list_analyses(plant_id)}
+        analysis = analyses.get(suggestion['analysis_id'])
+        if analysis:
+            with st.expander('제안의 확인 조건과 분석 한계'):
+                for check in analysis['result']['checks']:
+                    st.write('• ' + check)
+                st.caption(analysis['result']['uncertainty'])
 
     titles = {MODES[0]: "오늘의 관리 기록", MODES[1]: "제안에 따라 관리했어요", MODES[2]: "관리 후, 어떻게 달라졌나요?"}
     st.subheader(titles[mode])
@@ -119,8 +165,8 @@ def care_form(store, plant_id):
         with right:
             today = today_in_seoul()
             if st.session_state.get("care_date") is None:
-                st.session_state["care_date"] = today
-            occurred_on = st.date_input("기록 날짜", value=None, min_value=earliest, max_value=today, key="care_date")
+                st.session_state.pop("care_date", None)
+            occurred_on = st.date_input("기록 날짜", value=today, min_value=earliest, max_value=today, key="care_date")
         outcome = "unrecorded"
         if mode != MODES[1]:
             outcome = st.selectbox("관리 후 관찰한 상태" if mode == MODES[2] else "이전 기록과 비교한 상태",
@@ -146,6 +192,7 @@ def care_form(store, plant_id):
             st.error("기록을 저장하지 못했어요. 저장 폴더와 디스크 공간을 확인해 주세요.")
         else:
             st.session_state["_notice"] = "관리 기록을 저장했어요." if not suggestion else "AI 제안과 연결해 기록을 저장했어요."
+            st.session_state.pop(f'care_compose_{plant_id}', None)
             if mode == MODES[1]:
                 st.session_state[f"care_after_save_{plant_id}"] = (suggestion["id"], MODES[2])
             st.rerun()

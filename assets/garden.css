@@ -1,4 +1,40 @@
 :root { --garden-ink:#254632; --garden-soft:#72806e; --garden-line:#e3e7dc; }
+.care-intro { padding:22px 24px; border:1px solid #e1e9d9; border-radius:18px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
+.care-label { font-size:12px; font-weight:600; color:#54734a; }
+.care-intro h3 { margin:8px 0 6px; padding:0; font-size:22px !important; line-height:1.4; color:#254632; }
+.care-intro p { color:#566b50; font-size:14px; line-height:1.8; margin:0; }
+.care-totals { display:flex; flex-wrap:wrap; gap:10px 20px; margin-top:18px; color:#586e50; font-size:12px; line-height:1.8; }
+.care-totals b { margin-left:5px; color:#254632; font-size:16px; font-weight:650; }
+.st-key-care_workspace [data-testid="stCaptionContainer"] p { color:#63715e; font-size:13px; line-height:1.75; }
+.st-key-care_workspace [data-testid="stWidgetLabel"] p { color:#304b36; font-size:14px; line-height:1.7; }
+.st-key-care_workspace [data-testid="stMarkdownContainer"] p { font-size:14px; line-height:1.8; overflow-wrap:anywhere; }
+.st-key-care_workspace [data-testid="stForm"] { background:#fff; border:0; padding:14px 4px 4px; }
+.st-key-care_workspace [data-testid="stExpander"] { background:#fff; border-color:#e2e8dc; border-radius:12px; }
+.st-key-care_workspace [data-testid="stExpander"] summary { min-height:48px; }
+.st-key-care_workspace [data-testid="stRadio"] > div { gap:8px 16px; flex-wrap:wrap; }
+.st-key-care_workspace [data-testid="stRadio"] label { min-height:44px; margin-right:0; }
+.st-key-care_workspace button { min-height:48px; font-size:14px; }
+.st-key-care_workspace [data-testid="stFileUploader"] section { background:#f5f8f0; border-color:#d9e3ce; border-radius:12px; }
+.care-link-note { background:#f2f6ec; border:1px solid #dfe8d5; border-radius:12px; padding:16px; }
+.care-link-note b { color:#42613e; font-size:12px; }
+.care-link-note p { color:#304b36; font-size:14px; line-height:1.8; margin:8px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.st-key-care_history { margin-top:12px; }
+.care-history-heading { display:flex; align-items:center; gap:10px; margin:8px 0 0; }
+.care-history-heading h3 { padding:0; margin:0; font-size:21px !important; }
+.care-history-heading > span { font-size:12px; color:#54734a; background:#eaf2e2; padding:4px 9px; border-radius:20px; }
+.st-key-care_history [data-testid="stSelectbox"] { max-width:240px; }
+.care-month { font-size:14px; font-weight:600; color:#536f4b; margin:12px 0 0; }
+.st-key-care_history [class*="st-key-log_"] { background:#fff; border:1px solid #e2e8dc; border-radius:18px; padding:22px !important; }
+.care-entry-top { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.care-entry-date { font-size:15px; font-weight:600; color:#304e36; }
+.care-outcome { display:inline-block; padding:4px 9px; border-radius:20px; background:#f0f2ed; color:#65735f; font-size:12px; }
+.care-outcome.improved { background:#e8f1df; color:#40663e; }
+.care-outcome.worse { background:#f5edda; color:#785b24; }
+.care-entry-notes { color:#304b36; font-size:15px; line-height:1.9; white-space:pre-wrap; overflow-wrap:anywhere; }
+.care-entry-link { color:#637b54; font-size:12px; border-top:1px solid #edf0e7; padding-top:12px; }
+.care-empty { border:1px dashed #cedcc2; border-radius:18px; padding:28px 22px; background:#f4f7ef; text-align:center; }
+.care-empty b, .care-empty > span { color:#3e5d40; font-size:15px; font-weight:600; }
+.care-empty p { color:#63715e; font-size:14px; line-height:1.8; margin:10px 0 0; }
 .schedule-intro { padding:22px 24px; border:1px solid #e1e9d9; border-radius:18px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
 .schedule-label { font-size:12px; font-weight:600; color:#54734a; }
 .schedule-intro h3 { margin:8px 0 6px; padding:0; font-size:22px !important; line-height:1.4; color:#254632; }
@@ -257,6 +293,16 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
   .detail-copy { padding:0; }
 }
 @media(max-width:600px) {
+  .care-intro { padding:18px; }
+  .care-intro h3 { font-size:20px !important; }
+  .care-totals { gap:8px 14px; margin-top:14px; }
+  .care-totals b { font-size:15px; }
+  .st-key-care_workspace [data-testid="stForm"] { padding:12px 0 0; }
+  .st-key-care_history [class*="st-key-log_"] { padding:18px !important; }
+  .care-history-heading h3 { font-size:20px !important; }
+  .care-entry-top { gap:8px; }
+  .care-entry-notes { font-size:14px; }
+  .care-empty { padding:24px 16px; }
   .schedule-intro { padding:18px; }
   .schedule-intro h3 { font-size:20px !important; }
   .schedule-totals { gap:8px 14px; margin-top:14px; }
