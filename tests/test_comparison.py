@@ -18,6 +18,31 @@ APP = Path(__file__).resolve().parents[1] / "app.py"
 
 
 class ComparisonTests(unittest.TestCase):
+    def test_failed_comparison_screen_keeps_other_answer_and_export_without_retry(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder, 'STORAGE_BACKEND': 'local'}), \
+                patch('plant_care.comparison_ui.api_key', return_value='fixture'), \
+                patch('plant_care.comparison.analyze', side_effect=[(RESULT, {}), AnalysisError('가상 한도 초과')]) as api:
+            store = PlantStore(folder)
+            plant = store.add_plant('기록 보존 시험')
+            original = store.export_plant(plant)
+            app = AppTest.from_file(str(APP)).run(timeout=20)
+            app.button(key='comparison_prepare').click().run()
+            app.checkbox(key='comparison_consent').check().run()
+            app.button(key='compare_baseline').click().run()
+            app.button(key='compare_history').click().run()
+            self.assertEqual(len(app.exception), 0)
+            trial = app.session_state['comparison_trial']
+            self.assertEqual(trial['results']['baseline']['result'], RESULT)
+            self.assertEqual(trial['attempts']['history']['status'], 'failed')
+            self.assertTrue(app.button(key='compare_baseline').disabled)
+            self.assertTrue(app.button(key='compare_history').disabled)
+            app.run()
+            self.assertEqual(api.call_count, 2)
+            self.assertEqual(store.export_plant(plant), original)
+            exported = json.loads(export_trial(app.session_state['comparison_trial']))
+            self.assertEqual(exported['results']['baseline']['result'], RESULT)
+            self.assertEqual(exported['attempts']['history']['message'], '가상 한도 초과')
+
     def test_only_history_changes_between_conditions_and_source_is_unchanged(self):
         for case in ("wet", "dry", "followup"):
             with self.subTest(case=case):

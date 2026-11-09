@@ -1,4 +1,41 @@
 :root { --garden-ink:#254632; --garden-soft:#72806e; --garden-line:#e3e7dc; }
+.comparison-intro { padding:26px 28px; border:1px solid #e1e9d9; border-radius:18px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
+.comparison-label { font-size:12px; font-weight:600; color:#54734a; }
+.comparison-intro h1 { margin:9px 0 8px; padding:0; font-size:28px !important; line-height:1.4; letter-spacing:-.8px; color:#254632; }
+.comparison-intro p { color:#566b50; font-size:14px; line-height:1.8; margin:0; }
+.comparison-steps { display:flex; flex-wrap:wrap; gap:12px 24px; list-style:none; padding:0; margin:20px 0 0; }
+.comparison-steps li { display:flex; align-items:center; gap:7px; font-size:12px; color:#4f6747; }
+.comparison-steps li > span { display:flex; align-items:center; justify-content:center; width:23px; height:23px; border:1px solid #d4e0c9; border-radius:50%; background:#ffffffb8; color:#42603d; font-size:11px; }
+.st-key-comparison_workspace { gap:18px; }
+.st-key-comparison_workspace [data-testid="stCaptionContainer"] p { color:#63715e; font-size:13px; line-height:1.75; }
+.st-key-comparison_workspace [data-testid="stWidgetLabel"] p { color:#304b36; font-size:14px; line-height:1.7; }
+.st-key-comparison_workspace [data-testid="stMarkdownContainer"] p { font-size:14px; line-height:1.8; overflow-wrap:anywhere; }
+.st-key-comparison_workspace [data-testid="stExpander"] { background:#fff; border-color:#e2e8dc; border-radius:12px; }
+.st-key-comparison_workspace [data-testid="stExpander"] summary { min-height:48px; }
+.st-key-comparison_workspace button { min-height:48px; font-size:14px; }
+.st-key-comparison_workspace [data-testid="stRadio"] label { min-height:44px; }
+.st-key-comparison_workspace [data-testid="stFileUploader"] section { background:#f5f8f0; border-color:#d9e3ce; border-radius:12px; }
+.st-key-comparison_request { padding:22px; background:#fff; border:1px solid #e2e8dc; border-radius:18px; }
+.st-key-comparison_request h3, .st-key-comparison_assessment h3 { margin:0; padding:0; font-size:21px !important; }
+.comparison-fixed-meta { display:flex; flex-wrap:wrap; gap:8px 16px; color:#62735a; font-size:12px; line-height:1.8; }
+.comparison-question { background:#f2f6ec; border:1px solid #e1e9d8; border-radius:12px; padding:16px 18px; }
+.comparison-question > span { color:#5a744f; font-size:12px; }
+.comparison-question p { font-size:15px; color:#304b36; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; margin:6px 0 0; }
+.st-key-comparison_results [class*="st-key-comparison_side_"] { padding:22px !important; background:#fff; border:1px solid #e2e8dc; border-radius:18px; }
+.comparison-side-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.comparison-side-label { color:#6a7c60; font-size:12px; }
+.comparison-side-heading h3 { color:#254632; padding:0; margin:5px 0 0; font-size:22px !important; }
+.comparison-status { background:#edf3e6; color:#526f48; font-size:12px; padding:5px 9px; border-radius:20px; white-space:nowrap; }
+.comparison-empty { border:1px dashed #d5dfca; border-radius:14px; background:#f7f9f3; padding:22px 18px; text-align:center; }
+.comparison-empty b { color:#50674a; font-size:14px; font-weight:600; }
+.comparison-empty p { color:#69795f; font-size:13px; line-height:1.8; margin:9px 0 0; }
+.st-key-comparison_results .partner-note { margin:10px 0 20px; }
+.st-key-comparison_results .partner-bubble { border-radius:16px; }
+.st-key-comparison_results .insight-check { border-radius:14px; box-shadow:none; }
+.st-key-comparison_assessment { margin-top:10px; }
+.st-key-comparison_assessment [data-testid="stForm"] { padding:22px; border-color:#e2e8dc; border-radius:18px; }
+.st-key-comparison_archive { padding:22px !important; background:#f4f7ef; border:1px solid #e1e8d9; border-radius:18px; }
+.comparison-archive-heading { color:#3a583e; font-size:15px; font-weight:600; }
 .registration-intro { padding:26px 28px; border:1px solid #e1e9d9; border-radius:18px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
 .registration-label { font-size:12px; font-weight:600; color:#54734a; }
 .registration-intro h1 { margin:9px 0 7px; padding:0; font-size:28px !important; line-height:1.4; letter-spacing:-.8px; color:#254632; }
@@ -311,6 +348,14 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
   .detail-copy { padding:0; }
 }
 @media(max-width:600px) {
+  .comparison-intro { padding:22px 20px; }
+  .comparison-intro h1 { font-size:25px !important; }
+  .comparison-steps { gap:10px 16px; margin-top:16px; }
+  .comparison-steps li { font-size:11px; gap:5px; }
+  .st-key-comparison_request, .st-key-comparison_results [class*="st-key-comparison_side_"], .st-key-comparison_archive { padding:18px !important; }
+  .st-key-comparison_assessment [data-testid="stForm"] { padding:18px; }
+  .comparison-side-heading h3 { font-size:20px !important; }
+  .comparison-question { padding:14px; }
   .registration-intro { padding:22px 20px; }
   .registration-intro h1 { font-size:25px !important; }
   .registration-hint { margin-top:14px; }
