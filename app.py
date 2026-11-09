@@ -78,18 +78,34 @@ def register_plant():
         for key in ("plant_name", "plant_species", "plant_location", "plant_notes"):
             st.session_state[key] = ""
         st.session_state["_registration_photo_generation"] = st.session_state.get("_registration_photo_generation", 0) + 1
-    ui.heading("NEW COMPANION", "새로운 초록을 들여요", "이름과 사진을 남기면, 이 식물만의 기록이 시작돼요.")
-    with st.form("register_plant"):
-        left, right = st.columns(2)
-        with left:
-            name = st.text_input("식물 이름 *", max_chars=100, placeholder="예: 몬스테라 A", key="plant_name")
-        with right:
-            species = st.text_input("종류", max_chars=100, placeholder="알고 있는 경우 입력", key="plant_species")
-        location = st.text_input("키우는 장소", max_chars=200, placeholder="예: 거실 창가", key="plant_location")
-        notes = st.text_area("처음 상태와 메모", max_chars=3000, placeholder="처음 만난 날의 모습이나 기억하고 싶은 내용을 적어주세요.", key="plant_notes")
-        photo = st.file_uploader("식물 사진", type=["jpg", "jpeg", "png", "webp"],
-                                 key=f"plant_photo_{st.session_state.get('_registration_photo_generation', 0)}")
-        register = st.form_submit_button("식물 등록", type="primary", width="stretch")
+    with st.container(key="registration_workspace"):
+        st.html('<section class="registration-intro" aria-label="새 식물 등록 안내">'
+                '<span class="registration-label">새로운 초록과의 첫 만남</span>'
+                '<h1>새로운 초록을 들여요</h1>'
+                '<p>이름을 정하고, 이 식물만의 이야기를 시작해 보세요.</p>'
+                '<div class="registration-hint">이름만 있어도 등록할 수 있어요. 나머지는 선택이에요.</div></section>')
+        with st.form("register_plant"):
+            left, right = st.columns([1.15, 1], gap="large")
+            with left, st.container(key="registration_identity"):
+                st.html('<div class="registration-section"><h3>어떤 식물인가요?</h3>'
+                        '<p>편하게 부를 이름부터 정해 주세요.</p></div>')
+                name = st.text_input("식물 이름 *", max_chars=100, placeholder="예: 우리 집 몬스테라", key="plant_name")
+                species = st.text_input("종류 · 선택", max_chars=100, placeholder="모르면 비워 두어도 괜찮아요", key="plant_species")
+                location = st.text_input("키우는 장소 · 선택", max_chars=200, placeholder="예: 거실 창가, 책상 옆", key="plant_location")
+            with right, st.container(key="registration_photo"):
+                st.html('<div class="registration-section"><h3>첫 모습을 남겨요</h3>'
+                        '<p>사진이 있으면 내 정원에서 찾기 쉬워요.</p></div>')
+                photo = st.file_uploader("식물 사진 · 선택", type=["jpg", "jpeg", "png", "webp"],
+                                         key=f"plant_photo_{st.session_state.get('_registration_photo_generation', 0)}")
+                st.caption('잎과 화분이 함께 보이는 사진을 골라 주세요. 사진 없이도 등록할 수 있어요.')
+                st.html('<div class="registration-photo-note">등록한 사진은 이 식물의 대표 사진으로 사용해요.<br>'
+                        '사진을 올리는 것만으로 AI 분석을 요청하지 않아요.</div>')
+            with st.expander("처음 상태와 메모 · 선택"):
+                notes = st.text_area("처음 상태와 메모", max_chars=3000,
+                                     placeholder="처음 만난 날, 잎의 모습, 기억하고 싶은 내용을 적어 주세요.", key="plant_notes")
+            with st.container(key="registration_submit"):
+                st.caption('등록하면 식물 상세 화면으로 이동해요. 그곳에서 관리 기록과 케어 일정을 시작할 수 있어요.')
+                register = st.form_submit_button("식물 등록", type="primary", width="stretch")
     if register:
         try:
             new_id = store.add_plant(name=name, species=species, location=location, notes=notes, photo=photo.getvalue() if photo is not None else None)
