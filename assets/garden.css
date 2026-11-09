@@ -1,4 +1,22 @@
 :root { --garden-ink:#254632; --garden-soft:#72806e; --garden-line:#e3e7dc; }
+.registration-intro { padding:26px 28px; border:1px solid #e1e9d9; border-radius:18px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
+.registration-label { font-size:12px; font-weight:600; color:#54734a; }
+.registration-intro h1 { margin:9px 0 7px; padding:0; font-size:28px !important; line-height:1.4; letter-spacing:-.8px; color:#254632; }
+.registration-intro p { color:#566b50; font-size:14px; line-height:1.8; margin:0; }
+.registration-hint { margin-top:18px; font-size:12px; line-height:1.8; color:#54704a; }
+.st-key-registration_workspace { gap:20px; }
+.st-key-registration_workspace [data-testid="stForm"] { padding:26px; border:1px solid #e2e8dc; border-radius:18px; background:#fff; }
+.registration-section h3 { padding:0; margin:0 0 6px; font-size:19px !important; line-height:1.5; color:#254632; }
+.registration-section p { margin:0 0 8px; font-size:13px; line-height:1.8; color:#63715e; }
+.st-key-registration_workspace [data-testid="stWidgetLabel"] p { color:#304b36; font-size:14px; line-height:1.7; }
+.st-key-registration_workspace [data-testid="stCaptionContainer"] p { color:#63715e; font-size:13px; line-height:1.75; }
+.st-key-registration_photo { background:#f6f8f1; border:1px solid #e5ebdd; border-radius:14px; padding:20px !important; }
+.st-key-registration_photo [data-testid="stFileUploader"] section { background:#fff; border:1px dashed #cad9be; border-radius:12px; }
+.registration-photo-note { padding-top:12px; border-top:1px solid #e0e7d8; color:#63745b; font-size:12px; line-height:1.8; }
+.st-key-registration_workspace [data-testid="stExpander"] { border-color:#e2e8dc; border-radius:12px; background:#fff; }
+.st-key-registration_workspace [data-testid="stExpander"] summary { min-height:48px; }
+.st-key-registration_submit { margin-top:4px; padding-top:18px; border-top:1px solid #e7ecdf; }
+.st-key-registration_workspace button { min-height:48px; font-size:14px; }
 .care-intro { padding:22px 24px; border:1px solid #e1e9d9; border-radius:18px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
 .care-label { font-size:12px; font-weight:600; color:#54734a; }
 .care-intro h3 { margin:8px 0 6px; padding:0; font-size:22px !important; line-height:1.4; color:#254632; }
@@ -293,6 +311,13 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
   .detail-copy { padding:0; }
 }
 @media(max-width:600px) {
+  .registration-intro { padding:22px 20px; }
+  .registration-intro h1 { font-size:25px !important; }
+  .registration-hint { margin-top:14px; }
+  .st-key-registration_workspace [data-testid="stForm"] { padding:18px; }
+  .registration-section h3 { font-size:18px !important; }
+  .st-key-registration_photo { padding:16px !important; }
+  .registration-photo-note { font-size:13px; }
   .care-intro { padding:18px; }
   .care-intro h3 { font-size:20px !important; }
   .care-totals { gap:8px 14px; margin-top:14px; }

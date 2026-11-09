@@ -349,6 +349,33 @@ class AppTests(unittest.TestCase):
             self.assertEqual(len(app.error), 1)
             self.assertEqual(PlantStore(folder).list_plants(), [])
 
+    def test_registration_validation_keeps_optional_fields_and_success_resets_them(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as ai, patch("plant_care.ai_ui.fetch_weather") as weather:
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.text_input(key='plant_species').set_value('몬스테라')
+            app.text_input(key='plant_location').set_value('거실 창가')
+            app.text_area(key='plant_notes').set_value('처음 만난 날의 메모\n' + '긴 메모 ' * 100)
+            click_button(app, '식물 등록')
+            self.assertEqual(PlantStore(folder).list_plants(), [])
+            self.assertEqual(app.text_input(key='plant_location').value, '거실 창가')
+            self.assertTrue(app.text_area(key='plant_notes').value.startswith('처음 만난 날의 메모\n'))
+            saved_notes = app.text_area(key='plant_notes').value.strip()
+            app.text_input(key='plant_name').set_value('새로운 초록')
+            click_button(app, '식물 등록')
+            self.assertEqual(len(app.exception), 0)
+            store = PlantStore(folder)
+            plant = store.list_plants()[0]
+            self.assertEqual((plant['species'], plant['location'], plant['notes']), ('몬스테라', '거실 창가', saved_notes))
+            self.assertEqual(app.session_state['selected_plant'], plant['id'])
+            for key in ('plant_name', 'plant_species', 'plant_location', 'plant_notes'):
+                self.assertEqual(app.session_state[key], '')
+            self.assertEqual(app.session_state['_registration_photo_generation'], 1)
+            self.assertEqual(store.list_logs(plant['id']), [])
+            self.assertEqual(store.list_schedules(plant['id']), [])
+            ai.assert_not_called()
+            weather.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
