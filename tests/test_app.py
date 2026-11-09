@@ -20,6 +20,44 @@ def click_button(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_saved_ai_view_keeps_history_without_external_requests(self):
+        from plant_care.gemini import analysis_context
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.analyze") as ai, patch("plant_care.ai_ui.fetch_weather") as weather:
+            store = PlantStore(folder)
+            plant = store.add_plant("AI 화면 시험")
+            store.add_analysis(plant, "fixture", analysis_context(store, plant, "지난 질문", False), RESULT, {})
+            original = store.list_analyses(plant)
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.button(key=f"open_plant_{plant}").click().run()
+            app.button(key="detail_ai").click().run()
+            self.assertTrue(any("최근 관찰" in e.label for e in app.expander))
+            app.button(key="detail_record").click().run()
+            app.button(key="detail_ai").click().run()
+            self.assertEqual(len(app.exception), 0)
+            self.assertEqual(store.list_analyses(plant), original)
+            self.assertFalse(app.checkbox(key="ai_consent").value)
+            ai.assert_not_called()
+            weather.assert_not_called()
+
+    def test_blank_ai_state_with_consent_does_not_send_weather_or_analysis(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \
+                patch("plant_care.ai_ui.api_key", return_value="fixture-not-real"), \
+                patch("plant_care.ai_ui.analyze") as ai, patch("plant_care.ai_ui.fetch_weather") as weather:
+            store = PlantStore(folder)
+            plant = store.add_plant("첫 분석 시험")
+            store.set_weather_region(plant, "seoul")
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.button(key=f"open_plant_{plant}").click().run()
+            app.checkbox(key=f"ai_weather_{plant}").check()
+            app.checkbox(key="ai_consent").check()
+            click_button(app, "Gemini로 분석")
+            self.assertEqual(len(app.exception), 0)
+            self.assertTrue(any("지금 상태나 궁금한 점" in e.value for e in app.error))
+            self.assertEqual(store.list_analyses(plant), [])
+            ai.assert_not_called()
+            weather.assert_not_called()
+
     def test_detail_overview_shortcuts_keep_records_and_do_not_request_ai(self):
         from plant_care.time_utils import today_in_seoul
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"PLANT_CARE_DATA_DIR": folder, "STORAGE_BACKEND": "local"}), \

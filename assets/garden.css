@@ -1,4 +1,34 @@
 :root { --garden-ink:#254632; --garden-soft:#72806e; --garden-line:#e3e7dc; }
+.st-key-analysis_workspace { gap:18px; }
+.analysis-intro { padding:22px 24px; border:1px solid #e1e9d9; border-radius:18px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
+.analysis-label { font-size:12px; font-weight:600; color:#54734a; }
+.analysis-intro h3 { margin:8px 0 6px; padding:0; font-size:22px !important; line-height:1.4; color:#254632; }
+.analysis-intro p { color:#566b50; font-size:14px; line-height:1.8; margin:0; }
+.analysis-steps { display:flex; flex-wrap:wrap; list-style:none; padding:0; margin:18px 0 0; gap:20px; }
+.analysis-steps li { display:flex; align-items:center; gap:7px; font-size:12px; color:#4f6747; margin:0; }
+.analysis-steps li > span { display:flex; align-items:center; justify-content:center; width:23px; height:23px; border:1px solid #d4e0c9; border-radius:50%; background:#ffffffb8; color:#42603d; font-size:11px; font-weight:650; }
+.st-key-analysis_draft { background:#fff; border-radius:18px; }
+.st-key-analysis_draft > [data-testid="stExpander"] { border:1px solid #e2e8dc; border-radius:18px; }
+.st-key-analysis_draft [data-testid="stForm"] { border:0; background:#fff; padding:18px 4px 4px; }
+.analysis-form-heading { font-size:17px; color:#254632; font-weight:650; margin:0 0 6px; }
+.analysis-form-hint { color:#63715e; font-size:13px; line-height:1.7; margin:0 0 10px; }
+.analysis-confirm-heading { margin:8px 0 0; padding-top:18px; border-top:1px solid #e2e8dc; color:#2d4933; font-size:15px; font-weight:650; }
+.st-key-analysis_workspace [data-testid="stCaptionContainer"] p { color:#63715e; font-size:13px; line-height:1.75; }
+.st-key-analysis_workspace [data-testid="stWidgetLabel"] p { font-size:14px; color:#304b36; line-height:1.7; }
+.st-key-analysis_workspace [data-testid="stExpander"] { background:#fff; border-color:#e2e8dc; }
+.st-key-analysis_workspace [data-testid="stExpander"] summary { min-height:48px; }
+.st-key-analysis_workspace [data-testid="stFormSubmitButton"] button { min-height:48px; font-size:14px; }
+.st-key-analysis_workspace [data-testid="stFileUploader"] section { background:#f5f8f0; border-color:#d9e3ce; border-radius:12px; }
+.analysis-history-heading { display:flex; align-items:center; gap:10px; margin:10px 0 0; }
+.analysis-history-heading h3 { padding:0; margin:0; font-size:21px !important; }
+.analysis-history-heading > span { font-size:12px; color:#54734a; background:#eaf2e2; padding:4px 9px; border-radius:20px; }
+.st-key-analysis_history .partner-note { margin:8px 0 20px; }
+.st-key-analysis_history .partner-bubble { border-radius:16px; }
+.st-key-analysis_history .insight-section { margin:16px 0 12px; }
+.st-key-analysis_history .insight-check { border-radius:14px; box-shadow:none; }
+.analysis-empty { border:1px dashed #cedcc2; border-radius:18px; padding:28px 22px; background:#f4f7ef; text-align:center; }
+.analysis-empty b { color:#3e5d40; font-size:15px; font-weight:600; }
+.analysis-empty p { color:#63715e; font-size:14px; line-height:1.8; margin:10px 0 0; }
 /* Home uses a compact summary and two clear destinations: care, then plants. */
 .home-welcome { display:flex; align-items:center; justify-content:space-between; gap:24px; min-height:184px; padding:26px 32px; margin:0 0 22px; border:1px solid #e3eadc; border-radius:22px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
 .home-welcome-copy { min-width:0; }
@@ -189,6 +219,14 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
   .detail-copy { padding:0; }
 }
 @media(max-width:600px) {
+  .analysis-intro { padding:18px; }
+  .analysis-intro h3 { font-size:20px !important; }
+  .analysis-steps { gap:9px; margin-top:14px; }
+  .analysis-steps li { font-size:11px; gap:5px; }
+  .analysis-steps li > span { width:20px; height:20px; }
+  .st-key-analysis_draft [data-testid="stForm"] { padding:12px 0 0; }
+  .analysis-history-heading h3 { font-size:20px !important; }
+  .analysis-empty { padding:24px 16px; }
   .home-welcome { min-height:0; padding:22px 20px; margin-bottom:18px; gap:8px; }
   .home-welcome h1 { font-size:25px; letter-spacing:-.9px; margin:9px 0 8px; }
   .home-welcome p { font-size:13px; }
