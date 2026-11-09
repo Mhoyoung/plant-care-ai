@@ -15,7 +15,7 @@ from plant_care.data_ui import data_tools
 from plant_care.ai_ui import render_analysis
 from plant_care.comparison_ui import comparison_screen
 from plant_care.insight_ui import partner_note
-from plant_care.care_ui import care_form, open_care, suggestion_card
+from plant_care.care_ui import render_records, open_care, suggestion_card
 from plant_care import ui
 from plant_care.schedule_ui import garden_schedule_summary, render_schedules
 
@@ -192,13 +192,7 @@ def plant_detail(plant):
                     for suggestion in followed:
                         suggestion_card(store, suggestion, "overview")
     with care:
-        left, right = st.columns(2, gap="medium")
-        with left:
-            care_form(store, plant["id"])
-        with right, st.container(border=True, key="detail_care_timeline"):
-            st.subheader("관리 타임라인")
-            st.caption("남겨둔 기록을 시간순으로 모았어요.")
-            ui.timeline(store, logs, CARE_TYPES, OUTCOMES)
+        render_records(store, plant, logs)
     with ai:
         render_analysis(store, plant, on_refresh=refresh_team_records)
     with schedules:

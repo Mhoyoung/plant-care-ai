@@ -103,19 +103,44 @@ def detail_hero(store, plant):
             with st.expander("식물 메모"):
                 st.html(f'<div class="detail-notes">{escape(plant["notes"])}</div>')
 
-def timeline(store, logs, care_types, outcomes, limit=None):
+def timeline(store, logs, care_types, outcomes, limit=None, *, journal=False):
     if not logs:
-        st.html('<div class="quiet-empty"><span>아직 첫 페이지가 비어 있어요.</span>'
+        st.html(f'<div class="{"care-empty" if journal else "quiet-empty"}"><span>아직 첫 페이지가 비어 있어요.</span>'
                 '<p>물주기나 잎의 작은 변화부터 기록해 보세요.</p></div>')
+    month = None
     for log in logs[:limit] if limit else logs:
+        if journal and log['occurred_on'][:7] != month:
+            month = log['occurred_on'][:7]
+            day = date.fromisoformat(log['occurred_on'])
+            st.html(f'<div class="care-month">{day.year}년 {day.month}월</div>')
         with st.container(border=True, key=f"log_{log['id']}_{limit or 'all'}"):
-            outcome = "" if log["outcome"] == "unrecorded" else f' · {outcomes[log["outcome"]]}'
-            st.html(f'<div class="timeline-top"><span class="care-chip">{escape(care_types[log["kind"]])}</span>'
-                    f'<span>{escape(log["occurred_on"])}{escape(outcome)}</span></div>')
+            if journal:
+                outcome = '' if log['outcome'] == 'unrecorded' else (
+                    f'<span class="care-outcome {escape(log["outcome"], quote=True)}">{escape(outcomes[log["outcome"]])}</span>')
+                st.html('<div class="care-entry-top">'
+                        f'<span class="care-entry-date">{escape(log["occurred_on"])}</span>'
+                        f'<span class="care-chip">{escape(care_types[log["kind"]])}</span>{outcome}</div>')
+            else:
+                outcome = "" if log["outcome"] == "unrecorded" else f' · {outcomes[log["outcome"]]}'
+                st.html(f'<div class="timeline-top"><span class="care-chip">{escape(care_types[log["kind"]])}</span>'
+                        f'<span>{escape(log["occurred_on"])}{escape(outcome)}</span></div>')
             if log["notes"]:
-                st.write(log["notes"])
+                if journal:
+                    if len(log['notes']) > 240:
+                        st.html(f'<div class="care-entry-notes">{escape(log["notes"][:180])}…</div>')
+                        with st.expander('전체 메모 보기'):
+                            st.html(f'<div class="care-entry-notes">{escape(log["notes"])}</div>')
+                    else:
+                        st.html(f'<div class="care-entry-notes">{escape(log["notes"])}</div>')
+                else:
+                    st.write(log["notes"])
             if log.get("suggestion_id"):
                 label = "AI 제안 실행" if log["link_type"] == "execution" else "AI 관리 후 경과"
-                st.caption(f"{label} · {log['suggestion_text']}")
+                if journal:
+                    st.html(f'<div class="care-entry-link">{label}</div>')
+                    with st.expander('연결된 AI 제안 보기'):
+                        st.html(f'<div class="care-entry-notes">{escape(log["suggestion_text"] or "")}</div>')
+                else:
+                    st.caption(f"{label} · {log['suggestion_text']}")
             if log["photo_path"]:
                 display_photo(store, log['photo_path'], width=320)
