@@ -24,17 +24,39 @@ def api_key() -> str:
         return ""
 
 
+def analyze_saved_log(store, plant_id: int, log_id: int) -> bool:
+    """Analyze one newly saved care record for a plant that opted in."""
+    plant = store.get_plant(plant_id)
+    if not plant['auto_ai_enabled']:
+        return False
+    log = next((item for item in store.list_logs(plant_id) if item['id'] == log_id), None)
+    if log is None:
+        return False
+    if any(item['source_log_id'] == log_id for item in store.list_analyses(plant_id)):
+        return False
+    image = store.read_photo(log['photo_path']) if log['photo_path'] else None
+    from .constants import CARE_TYPES, OUTCOMES
+    state = f"{CARE_TYPES[log['kind']]} 기록: {log['notes'] or '추가 메모 없음'}"
+    if log['outcome'] != 'unrecorded':
+        state += f" · 관찰한 변화: {OUTCOMES[log['outcome']]}"
+    context = analysis_context(store, plant_id, state, image is not None)
+    result, usage = analyze(api_key(), context, image)
+    store.add_analysis(plant_id, MODEL, context, result, usage, image, source_log_id=log_id)
+    return True
+
+
 def render_analysis(store, plant, on_refresh=None):
     analyses = store.list_analyses(plant["id"])
     with st.container(key="analysis_workspace"):
         st.html('<section class="analysis-intro" aria-label="AI 분석 안내">'
                 '<span class="analysis-label">AI 식물 파트너</span>'
-                '<h3>지금 모습, 함께 살펴볼까요?</h3>'
-                '<p>사진과 쌓인 기록에서 다음에 확인할 일을 찾아요.</p>'
+                '<h3>오늘의 변화를 함께 살펴봐요</h3>'
+                '<p>새 기록을 남기면 AI가 함께 살펴보고, 다음에 확인할 일을 찾아요.</p>'
                 '<ol class="analysis-steps" aria-label="분석 순서">'
                 '<li><span>1</span>상태 입력</li><li><span>2</span>전송 확인</li>'
                 '<li><span>3</span>결과 살펴보기</li></ol></section>')
         with st.container(key="analysis_draft"), st.expander("새 AI 분석 요청", expanded=not analyses):
+            st.caption('직접 질문할 수도 있어요. 자동 관찰은 관리 기록 화면에서 식물별로 켤 수 있어요.')
             _analysis_request(store, plant, on_refresh)
         _analysis_history(store, plant)
 
@@ -68,7 +90,7 @@ def _analysis_request(store, plant, on_refresh):
                        "선택한 경우 지역 실외 날씨도 함께 보냅니다. 무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
             st.caption("무료 사용은 AI Studio의 Free Tier 프로젝트에서 설정해 주세요. "
                        "앱은 결제 상태를 확인할 수 없으며, 결제를 연결한 프로젝트의 키는 과금될 수 있어요.")
-            st.caption(f"사용 모델: {MODEL} · 버튼을 누를 때만 호출")
+            st.caption(f"사용 모델: {MODEL} · 직접 요청하거나 자동 관찰을 켠 식물의 새 관리 기록을 저장할 때 호출")
             st.markdown('[프로젝트·모델의 실제 요청 한도 확인](https://aistudio.google.com/rate-limit) · [429 원인별 안내](https://ai.google.dev/gemini-api/docs/api-errors?hl=ko)')
         consent = st.checkbox("사진·식물 기록과 선택한 날씨를 Google로 보내 분석하는 데 동의해요.", key="ai_consent")
         submit = st.form_submit_button("Gemini로 분석", type="primary", disabled=not bool(key), width="stretch", on_click=on_refresh)

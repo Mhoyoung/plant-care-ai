@@ -27,7 +27,8 @@ ui.style()
 
 # Cloud hot reload can briefly keep old imported store classes. Wait for a cold
 # restart before reading/writing the extended snapshot rather than mixing versions.
-if not all(callable(getattr(cls, 'add_schedule', None)) for cls in (PlantStore, CloudPlantStore)) or 'care_schedules' not in TABLES:
+if not all(callable(getattr(cls, 'add_schedule', None)) and callable(getattr(cls, 'set_auto_ai', None))
+           for cls in (PlantStore, CloudPlantStore)) or 'care_schedules' not in TABLES:
     st.warning('업데이트 적용을 위한 재시작이 필요해요. 앱 관리자가 재시작한 뒤 다시 접속해 주세요.')
     st.stop()
 
@@ -55,6 +56,10 @@ if "selected_plant" not in st.session_state:
     st.session_state["selected_plant"] = -1
 if st.session_state["selected_plant"] not in [-1, *plant_by_id]:
     st.session_state["selected_plant"] = -1
+if '_open_ai_after_save' in st.session_state:
+    plant_to_open = st.session_state.pop('_open_ai_after_save')
+    if plant_to_open in plant_by_id:
+        st.session_state[f'plant_tabs_{plant_to_open}'] = 'AI 분석'
 with st.sidebar:
     st.html('<div class="eyebrow">A LITTLE GREEN, EVERY DAY</div><div class="sidebar-brand">내 식물 기록</div><div class="sidebar-note">함께 자라는 나의 작은 정원</div>')
     selected_id = st.selectbox("정원의 식물", options=[-1, *plant_by_id],
@@ -73,6 +78,8 @@ with st.container(key="top_nav"):
     st.html(APP_ROOT / "assets" / "navigation.html", unsafe_allow_javascript=True)
 if notice := st.session_state.pop("_notice", None):
     st.success(notice)
+if warning := st.session_state.pop("_warning", None):
+    st.warning(warning)
 
 def register_plant():
     if st.session_state.pop("_reset_registration", False):
