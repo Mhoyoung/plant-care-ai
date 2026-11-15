@@ -103,6 +103,15 @@ class PlantStore:
                 connection.execute('ALTER TABLE care_logs ADD COLUMN suggestion_id INTEGER REFERENCES ai_suggestions(id)')
             if 'link_type' not in columns:
                 connection.execute("ALTER TABLE care_logs ADD COLUMN link_type TEXT CHECK(link_type IN ('execution', 'outcome'))")
+            plant_columns = {row['name'] for row in connection.execute('PRAGMA table_info(plants)')}
+            if 'auto_ai_enabled' not in plant_columns:
+                connection.execute('ALTER TABLE plants ADD COLUMN auto_ai_enabled INTEGER NOT NULL DEFAULT 0 '
+                                   'CHECK(auto_ai_enabled IN (0, 1))')
+            analysis_columns = {row['name'] for row in connection.execute('PRAGMA table_info(ai_analyses)')}
+            if 'source_log_id' not in analysis_columns:
+                connection.execute('ALTER TABLE ai_analyses ADD COLUMN source_log_id INTEGER REFERENCES care_logs(id)')
+            connection.execute('CREATE UNIQUE INDEX IF NOT EXISTS ai_analysis_source_log_once '
+                               'ON ai_analyses(source_log_id) WHERE source_log_id IS NOT NULL')
             schedule_columns = {row['name'] for row in connection.execute('PRAGMA table_info(care_schedules)')}
             if 'source_suggestion_id' not in schedule_columns:
                 connection.execute('ALTER TABLE care_schedules ADD COLUMN source_suggestion_id INTEGER REFERENCES ai_suggestions(id)')
@@ -180,6 +189,15 @@ class PlantStore:
         if row is None:
             raise ValueError("등록된 식물을 찾을 수 없어요.")
         return dict(row)
+
+    def set_auto_ai(self, plant_id: int, enabled: bool) -> None:
+        if type(enabled) is not bool:
+            raise ValueError('자동 AI 관찰 설정을 확인해 주세요.')
+        with self._connection() as connection:
+            cursor = connection.execute('UPDATE plants SET auto_ai_enabled = ? WHERE id = ?',
+                                        (int(enabled), plant_id))
+            if cursor.rowcount != 1:
+                raise ValueError('등록된 식물을 찾을 수 없어요.')
 
     def add_log(self, plant_id: int, kind: str, occurred_on: date | str, notes: str = "", outcome: str = "unrecorded", photo: bytes | None = None,
                 suggestion_id: int | None = None, link_type: str | None = None) -> int:
@@ -350,16 +368,21 @@ class PlantStore:
                                    'ON CONFLICT(plant_id) DO UPDATE SET region_id = excluded.region_id', (plant_id, region_id))
 
     def add_analysis(self, plant_id: int, model: str, context: dict, result: dict,
-                     usage: dict, photo: bytes | None = None) -> int:
+                     usage: dict, photo: bytes | None = None, source_log_id: int | None = None) -> int:
         self.get_plant(plant_id)
+        if source_log_id is not None:
+            with self._connection() as connection:
+                source = connection.execute('SELECT plant_id FROM care_logs WHERE id = ?', (source_log_id,)).fetchone()
+                if source is None or source['plant_id'] != plant_id:
+                    raise ValueError('이 식물의 관리 기록을 선택해 주세요.')
         values = [json.dumps(value, ensure_ascii=False) for value in (context, result, usage)]
         photo_path = self._save_photo(photo)
         try:
             with self._connection() as connection:
                 cursor = connection.execute(
-                    "INSERT INTO ai_analyses(plant_id, model, input_json, result_json, usage_json, photo_path, created_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (plant_id, model, *values, photo_path, datetime.now(timezone.utc).isoformat()),
+                    "INSERT INTO ai_analyses(plant_id, model, input_json, result_json, usage_json, photo_path, created_at, source_log_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (plant_id, model, *values, photo_path, datetime.now(timezone.utc).isoformat(), source_log_id),
                 )
                 analysis_id = cursor.lastrowid
                 self._insert_suggestions(connection, analysis_id, result)

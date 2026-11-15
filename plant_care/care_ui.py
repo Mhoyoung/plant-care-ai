@@ -113,6 +113,27 @@ def render_records(store, plant, logs):
 
 
 def care_form(store, plant_id):
+    plant = store.get_plant(plant_id)
+    with st.expander('AI와 함께 관찰하기', expanded=bool(plant['auto_ai_enabled'])):
+        enabled = bool(plant['auto_ai_enabled'])
+        st.write('자동 AI 관찰 켜짐' if enabled else '자동 AI 관찰 꺼짐')
+        st.caption('켜두면 이 식물의 새 관리 기록을 남길 때마다 AI가 사진·메모와 이전 경과를 함께 살펴보고 결과를 저장해요. '
+                   '사진이 없어도 기록 종류와 메모를 참고해요.')
+        st.caption('분석할 때 이 식물의 정보, 최근 관리 기록과 이전 제안·경과, 새 사진을 Google Gemini로 보냅니다. '
+                   '날씨는 자동으로 보내지 않아요. API 사용량이 발생하며 결제 설정에 따라 과금될 수 있어요.')
+        from .ai_ui import api_key
+        available = bool(api_key())
+        if not available and not enabled:
+            st.info('AI 분석 연결이 준비되면 자동 관찰을 켤 수 있어요.')
+        if st.button('자동 AI 관찰 끄기' if enabled else 'Google Gemini 자동 관찰 켜기',
+                     key=f'auto_ai_change_{plant_id}', disabled=not enabled and not available):
+            try:
+                store.set_auto_ai(plant_id, not enabled)
+            except (ValueError, OSError, sqlite3.Error):
+                st.error('설정을 저장하지 못했어요. 저장소 상태를 확인해 주세요.')
+            else:
+                st.session_state['_notice'] = '자동 AI 관찰을 껐어요.' if enabled else '이 식물의 자동 AI 관찰을 켰어요.'
+                st.rerun()
     mode = st.radio("남길 기록", MODES, horizontal=True, key=f"care_mode_{plant_id}",
                     on_change=change_care_mode, args=(plant_id,))
     suggestions = store.list_suggestions(plant_id)
@@ -180,10 +201,10 @@ def care_form(store, plant_id):
         save = st.form_submit_button(label, type="primary", width="stretch")
     if save:
         try:
-            store.add_log(plant_id=plant_id, kind=kind, occurred_on=occurred_on, notes=notes, outcome=outcome,
-                          photo=photo.getvalue() if photo is not None else None,
-                          suggestion_id=suggestion["id"] if suggestion else None,
-                          link_type=("execution" if mode == MODES[1] else "outcome") if suggestion else None)
+            log_id = store.add_log(plant_id=plant_id, kind=kind, occurred_on=occurred_on, notes=notes, outcome=outcome,
+                                   photo=photo.getvalue() if photo is not None else None,
+                                   suggestion_id=suggestion["id"] if suggestion else None,
+                                   link_type=("execution" if mode == MODES[1] else "outcome") if suggestion else None)
         except ValueError as error:
             st.error(str(error))
         except OSError as error:
@@ -196,4 +217,16 @@ def care_form(store, plant_id):
             st.session_state.pop(f'care_compose_{plant_id}', None)
             if mode == MODES[1]:
                 st.session_state[f"care_after_save_{plant_id}"] = (suggestion["id"], MODES[2])
+            if plant['auto_ai_enabled']:
+                from .ai_ui import analyze_saved_log
+                from .gemini import AnalysisError
+                try:
+                    with st.spinner('기록을 저장했어요. AI가 새 모습을 함께 살펴보고 있어요…'):
+                        analyzed = analyze_saved_log(store, plant_id, log_id)
+                except (AnalysisError, ValueError, OSError, sqlite3.Error):
+                    st.session_state['_warning'] = '관리 기록은 저장됐어요. AI 관찰은 완료되지 않아 AI 분석 화면에서 다시 요청할 수 있어요.'
+                else:
+                    if analyzed:
+                        st.session_state['_notice'] = '관리 기록과 AI 관찰을 저장했어요. AI가 살펴본 내용과 다음 할 일을 확인해 보세요.'
+                        st.session_state['_open_ai_after_save'] = plant_id
             st.rerun()

@@ -33,6 +33,7 @@ def restore_connection(connection, state):
         raise ValueError('정원 데이터 형식을 확인할 수 없어요.')
     if any(connection.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone() for table in TABLES):
         raise ValueError('기존 기록이 있는 정원에는 백업을 덮어쓰지 않아요.')
+    source_logs = []
     for table in TABLES:
         columns = [row['name'] for row in connection.execute(f'PRAGMA table_info({table})')]
         rows = state['tables'].get(table, [])
@@ -41,12 +42,24 @@ def restore_connection(connection, state):
         for row in rows:
             if table == 'care_schedules' and isinstance(row, dict) and set(row) == set(columns) - {'source_suggestion_id'}:
                 row = {**row, 'source_suggestion_id': None}
+            if table == 'plants' and isinstance(row, dict) and set(row) == set(columns) - {'auto_ai_enabled'}:
+                row = {**row, 'auto_ai_enabled': 0}
+            if table == 'ai_analyses' and isinstance(row, dict) and set(row) == set(columns) - {'source_log_id'}:
+                row = {**row, 'source_log_id': None}
             if not isinstance(row, dict) or set(row) != set(columns):
                 raise ValueError('정원 데이터 형식을 확인할 수 없어요.')
+            if table == 'ai_analyses' and row['source_log_id'] is not None:
+                source_logs.append((row['id'], row['source_log_id']))
+                row = {**row, 'source_log_id': None}
             if row.get('photo_path'):
                 photo_name(row['photo_path'])
             values = [row[column] for column in columns]
             connection.execute(f"INSERT INTO {table} ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})", values)
+    for analysis_id, log_id in source_logs:
+        connection.execute('UPDATE ai_analyses SET source_log_id = ? WHERE id = ?', (log_id, analysis_id))
+    if connection.execute('SELECT 1 FROM ai_analyses a JOIN care_logs l ON l.id = a.source_log_id '
+                          'WHERE a.plant_id != l.plant_id LIMIT 1').fetchone():
+        raise ValueError('AI 관찰과 관리 기록의 식물 연결을 확인해 주세요.')
     if connection.execute('PRAGMA foreign_key_check').fetchall():
         raise ValueError('정원 기록의 연결 관계를 확인할 수 없어요.')
 
