@@ -80,7 +80,7 @@ class GeminiTests(unittest.TestCase):
         self.assertEqual(request.get_header("X-goog-api-key"), "local-test-key")
         self.assertFalse(payload["store"])
         self.assertEqual(payload["model"], MODEL)
-        self.assertEqual(payload["generation_config"]["thinking_level"], "low")
+        self.assertEqual(payload["generation_config"]["thinking_level"], "minimal")
         self.assertEqual(http.call_args.kwargs["timeout"], 55)
         self.assertEqual(payload["input"][1]["mime_type"], "image/jpeg")
         self.assertEqual(payload["response_format"]["mime_type"], "application/json")

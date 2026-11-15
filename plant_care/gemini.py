@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 from .ai_context import build_context
 from .media import prepare_photo
 
-MODEL = "gemini-3.8-flash"
+MODEL = "gemini-3.5-flash-lite"
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions"
 REQUEST_TIMEOUT_SECONDS = 55
 LOGGER = logging.getLogger(__name__)
@@ -137,7 +137,7 @@ def analyze(api_key: str, context: dict, photo: bytes | None = None) -> tuple[di
         inputs.append({"type": "image", "data": base64.b64encode(prepare_photo(photo)).decode("ascii"),
                        "mime_type": "image/jpeg"})
     payload = {"model": MODEL, "input": inputs, "system_instruction": SYSTEM, "store": False,
-               "generation_config": {"max_output_tokens": 4096, "thinking_level": "low"},
+               "generation_config": {"max_output_tokens": 4096, "thinking_level": "minimal"},
                "response_format": {"type": "text", "mime_type": "application/json", "schema": SCHEMA}}
     request = Request(ENDPOINT, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                       headers={"Content-Type": "application/json", "x-goog-api-key": api_key.strip()}, method="POST")
