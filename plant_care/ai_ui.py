@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from .gemini import AnalysisError, MODEL, analysis_context, analyze
+from .media import PHOTO_UPLOAD_TYPES
 from .ui import display_photo
 from .weather import REGIONS, WeatherError, fetch_weather, unavailable_weather
 from .weather_ui import region_settings, show_weather
@@ -51,7 +52,7 @@ def _analysis_request(store, plant, on_refresh):
             state = st.text_area("지금 상태와 궁금한 점", max_chars=3000, height=145,
                              placeholder="예: 잎이 처져 있어요. 물을 더 줘야 할까요?", key="ai_state")
         with right:
-            photo = st.file_uploader("분석할 현재 사진 (선택)", type=["jpg", "jpeg", "png", "webp"], key="ai_photo")
+            photo = st.file_uploader("분석할 현재 사진 (선택)", type=PHOTO_UPLOAD_TYPES, max_upload_size=10, key="ai_photo")
             use_registered = st.checkbox("새 사진이 없으면 등록 사진 함께 보내기", value=False, key="ai_use_registered",
                                        disabled=not bool(plant["photo_path"]))
         include_weather = st.checkbox('선택한 지역의 실외 날씨 함께 참고', value=False,

@@ -8,6 +8,7 @@ from plant_care.constants import CARE_TYPES, OUTCOMES
 from plant_care.store_factory import create_store, discard_cached_store, personal_mode
 from plant_care.auth_ui import require_account, logout
 from plant_care.private_media import download
+from plant_care.media import PHOTO_UPLOAD_TYPES
 from plant_care.cloud_store import CloudError, CloudPlantStore
 from plant_care.storage import PlantStore
 from plant_care.snapshot import TABLES
@@ -95,7 +96,7 @@ def register_plant():
             with right, st.container(key="registration_photo"):
                 st.html('<div class="registration-section"><h3>첫 모습을 남겨요</h3>'
                         '<p>사진이 있으면 내 정원에서 찾기 쉬워요.</p></div>')
-                photo = st.file_uploader("식물 사진 · 선택", type=["jpg", "jpeg", "png", "webp"],
+                photo = st.file_uploader("식물 사진 · 선택", type=PHOTO_UPLOAD_TYPES, max_upload_size=10,
                                          key=f"plant_photo_{st.session_state.get('_registration_photo_generation', 0)}")
                 st.caption('잎과 화분이 함께 보이는 사진을 골라 주세요. 사진 없이도 등록할 수 있어요.')
                 st.html('<div class="registration-photo-note">등록한 사진은 이 식물의 대표 사진으로 사용해요.<br>'
