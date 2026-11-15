@@ -50,8 +50,12 @@ def check_card(text, index):
 
 
 def original_result(result):
-    for field, label in (("summary", "상태 요약"), ("observations", "참고한 관찰"), ("checks", "먼저 확인할 것"),
-                         ("actions", "다음 관리 제안"), ("uncertainty", "분석의 한계")):
+    for field, label in (("summary", "상태 요약"), ("identity", "식물 종류 추정"),
+                         ("observations", "참고한 관찰"), ("checks", "먼저 확인할 것"),
+                         ("care_guide", "기본 관리 방법"), ("actions", "다음 관리 제안"),
+                         ("uncertainty", "분석의 한계")):
+        if not result.get(field):
+            continue
         st.write(f"**{label}**")
         values = result[field] if isinstance(result[field], list) else [result[field]]
         for value in values:
@@ -62,6 +66,13 @@ def render_insight(result, context, prefix, *, store=None, suggestions=None):
     """두 비교 조건과 실제 분석에서 같은 표시 규칙을 사용한다. 외부 호출 없음."""
     with st.container(key=f"insight_{prefix}"):
         partner_note(result["summary"], context, result['checks'][0] if result['checks'] else None)
+        if identity := result.get('identity'):
+            st.html('<div class="insight-identity"><span>이 식물은 어떤 종류일까요?</span>'
+                    f'<p>{escape(identity)}</p></div>')
+        if guide := result.get('care_guide'):
+            st.html('<div class="insight-section">함께 돌보는 방법</div>')
+            for item in guide:
+                st.html(f'<div class="insight-guide">{escape(item)}</div>')
         st.html('<div class="insight-section">먼저, 이것부터 확인해요</div>')
         checks = result["checks"]
         if not checks:

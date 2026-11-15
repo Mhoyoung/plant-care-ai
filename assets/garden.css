@@ -335,6 +335,10 @@ div[class*="st-key-photo_"] [data-testid="stCaption"] { text-align:center; font-
 .partner-bubble p { margin:0 0 12px; font-size:16px; line-height:1.8; color:#253f2d; white-space:pre-wrap; overflow-wrap:anywhere; }
 .partner-meta { color:#596d52; font-size:12px; }
 .insight-section { font-size:16px; font-weight:700; color:#254632; margin:10px 0 12px; }
+.insight-identity { background:#edf3e8; border:1px solid #dce8d4; border-radius:16px; padding:17px 19px; margin:12px 0 18px; }
+.insight-identity span { display:block; font-size:13px; font-weight:700; color:#537254; margin-bottom:7px; }
+.insight-identity p { margin:0; color:#254632; font-size:16px; line-height:1.75; white-space:pre-wrap; overflow-wrap:anywhere; }
+.insight-guide { background:#fff; border-left:3px solid #80a96e; padding:10px 14px; margin:0 0 8px; color:#304938; font-size:15px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
 .insight-check { display:flex; align-items:flex-start; gap:13px; background:#fff; border:1px solid #dee6d8; border-radius:16px; padding:18px; margin-bottom:12px; }
 .insight-number { flex:0 0 30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#ecf3e6; color:#527044; font-size:12px; font-weight:700; }
 .insight-check h4 { padding:0; margin:3px 0 9px; font-size:15px; line-height:1.4; color:#254632; font-weight:700; }

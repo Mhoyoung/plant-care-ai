@@ -117,9 +117,9 @@ def care_form(store, plant_id):
     with st.expander('AI와 함께 관찰하기', expanded=bool(plant['auto_ai_enabled'])):
         enabled = bool(plant['auto_ai_enabled'])
         st.write('자동 AI 관찰 켜짐' if enabled else '자동 AI 관찰 꺼짐')
-        st.caption('켜두면 이 식물의 새 관리 기록을 남길 때마다 AI가 사진·메모와 이전 경과를 함께 살펴보고 결과를 저장해요. '
-                   '사진이 없어도 기록 종류와 메모를 참고해요.')
-        st.caption('분석할 때 이 식물의 정보, 최근 관리 기록과 이전 제안·경과, 새 사진을 Google Gemini로 보냅니다. '
+        st.caption('켜두면 새 기록마다 AI가 식물 종류의 단서와 기록의 변화를 살펴보고, 기본 관리 방법과 다음에 확인할 일을 알려줘요. '
+                   '새 사진이 없으면 등록 사진이나 최근 기록 사진을 참고할 수 있어요.')
+        st.caption('분석할 때 이 식물의 정보, 최근 관리 기록과 이전 제안·경과, 새 사진 또는 저장된 사진 한 장을 Google Gemini로 보냅니다. '
                    '날씨는 자동으로 보내지 않아요. API 사용량이 발생하며 결제 설정에 따라 과금될 수 있어요.')
         from .ai_ui import api_key
         available = bool(api_key())
