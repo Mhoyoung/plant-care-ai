@@ -80,6 +80,8 @@ class GeminiTests(unittest.TestCase):
         self.assertEqual(request.get_header("X-goog-api-key"), "local-test-key")
         self.assertFalse(payload["store"])
         self.assertEqual(payload["model"], MODEL)
+        self.assertEqual(payload["generation_config"]["thinking_level"], "low")
+        self.assertEqual(http.call_args.kwargs["timeout"], 55)
         self.assertEqual(payload["input"][1]["mime_type"], "image/jpeg")
         self.assertEqual(payload["response_format"]["mime_type"], "application/json")
 
@@ -103,10 +105,18 @@ class GeminiTests(unittest.TestCase):
                     self.assertIn("한도", str(raised.exception))
                 http.assert_called_once()
 
-    def test_timeout_and_invalid_photo_do_not_produce_results(self):
-        for error in (TimeoutError(), URLError("private details")):
-            with patch("plant_care.gemini.urlopen", side_effect=error), self.assertRaises(AnalysisError):
-                analyze("test-key", {})
+    def test_timeout_and_connection_failure_are_distinguished_without_retry_or_private_details(self):
+        for error, expected in ((TimeoutError("private details"), "시간이 초과"),
+                                (URLError(TimeoutError("private details")), "시간이 초과"),
+                                (URLError("private details"), "앱 서버에서 Gemini에 연결")):
+            with self.subTest(error=type(error).__name__), patch("plant_care.gemini.urlopen", side_effect=error) as http:
+                with self.assertRaises(AnalysisError) as raised:
+                    analyze("test-key", {})
+                self.assertIn(expected, str(raised.exception))
+                self.assertNotIn("private details", str(raised.exception))
+                http.assert_called_once()
+
+    def test_invalid_photo_never_calls_network(self):
         with patch("plant_care.gemini.urlopen") as http, self.assertRaises(ValueError):
             analyze("test-key", {}, b"invalid photo")
         http.assert_not_called()
