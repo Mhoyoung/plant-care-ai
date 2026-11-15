@@ -12,8 +12,10 @@ from PIL import Image
 from plant_care.gemini import AnalysisError, MODEL, analyze, analysis_context
 from plant_care.storage import PlantStore
 
-RESULT = {"summary": "기록을 참고한 제안", "observations": ["최근 물주기 기록이 있습니다."],
-          "checks": ["흙 상태를 확인하세요."], "actions": ["흙이 젖었다면 물을 더 주지 마세요."],
+RESULT = {"summary": "기록을 참고한 제안", "identity": "사진만으로 종류를 확정할 수 없습니다.",
+          "observations": ["최근 물주기 기록이 있습니다."],
+          "checks": ["흙 상태를 확인하세요."], "care_guide": ["흙 상태를 확인한 뒤 물주기를 판단하세요."],
+          "actions": ["흙이 젖었다면 물을 더 주지 마세요."],
           "uncertainty": "사진만으로 흙 수분을 판단할 수 없습니다."}
 
 

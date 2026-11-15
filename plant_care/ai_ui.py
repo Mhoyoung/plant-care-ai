@@ -29,17 +29,28 @@ def analyze_saved_log(store, plant_id: int, log_id: int) -> bool:
     plant = store.get_plant(plant_id)
     if not plant['auto_ai_enabled']:
         return False
-    log = next((item for item in store.list_logs(plant_id) if item['id'] == log_id), None)
+    logs = store.list_logs(plant_id)
+    log = next((item for item in logs if item['id'] == log_id), None)
     if log is None:
         return False
     if any(item['source_log_id'] == log_id for item in store.list_analyses(plant_id)):
         return False
-    image = store.read_photo(log['photo_path']) if log['photo_path'] else None
+    photo_path = log['photo_path']
+    photo_source = f"이번 관리 기록 사진 · 기록 날짜 {log['occurred_on']}" if photo_path else None
+    if not photo_path and plant['photo_path']:
+        photo_path = plant['photo_path']
+        photo_source = '식물 등록 때 저장한 대표 사진 · 현재 모습은 아닐 수 있음'
+    if not photo_path:
+        previous = next((item for item in logs if item['id'] != log_id and item['photo_path']), None)
+        if previous:
+            photo_path = previous['photo_path']
+            photo_source = f"지난 관리 기록 사진 · 기록 날짜 {previous['occurred_on']} · 현재 모습이 아님"
+    image = store.read_photo(photo_path) if photo_path else None
     from .constants import CARE_TYPES, OUTCOMES
     state = f"{CARE_TYPES[log['kind']]} 기록: {log['notes'] or '추가 메모 없음'}"
     if log['outcome'] != 'unrecorded':
         state += f" · 관찰한 변화: {OUTCOMES[log['outcome']]}"
-    context = analysis_context(store, plant_id, state, image is not None)
+    context = analysis_context(store, plant_id, state, image is not None, photo_source=photo_source)
     result, usage = analyze(api_key(), context, image)
     store.add_analysis(plant_id, MODEL, context, result, usage, image, source_log_id=log_id)
     return True
@@ -51,7 +62,7 @@ def render_analysis(store, plant, on_refresh=None):
         st.html('<section class="analysis-intro" aria-label="AI 분석 안내">'
                 '<span class="analysis-label">AI 식물 파트너</span>'
                 '<h3>오늘의 변화를 함께 살펴봐요</h3>'
-                '<p>새 기록을 남기면 AI가 함께 살펴보고, 다음에 확인할 일을 찾아요.</p>'
+                '<p>식물 종류의 단서와 기록의 변화를 살피고, 다음 관리 방법을 함께 찾아요.</p>'
                 '<ol class="analysis-steps" aria-label="분석 순서">'
                 '<li><span>1</span>상태 입력</li><li><span>2</span>전송 확인</li>'
                 '<li><span>3</span>결과 살펴보기</li></ol></section>')
@@ -84,7 +95,7 @@ def _analysis_request(store, plant, on_refresh):
         else:
             st.caption('날씨도 참고하려면 위의 지역 설정을 펼쳐 도시를 저장해 주세요.')
         st.html('<div class="analysis-confirm-heading">전송 전에 확인해 주세요</div>')
-        st.caption('입력한 상태·관리 기록·이전 제안과 경과를 Google Gemini로 보냅니다. 사진과 날씨는 선택한 경우에만 포함해요.')
+        st.caption('입력한 상태·관리 기록·이전 제안과 경과를 Google Gemini로 보냅니다. 사진을 선택하면 식물 종류도 추정해요. 날씨는 선택한 경우에만 포함해요.')
         with st.expander("분석에 사용하는 정보와 무료 구간 안내"):
             st.caption("현재 상태와 최근 관리 기록 최대 30건, 이전 제안 최대 10건과 각 제안의 최근 경과 3건, 선택한 사진 1장을 Google Gemini로 보냅니다. "
                        "선택한 경우 지역 실외 날씨도 함께 보냅니다. 무료 구간 데이터는 Google 제품 개선에 사용될 수 있어요.")
@@ -112,7 +123,10 @@ def _analysis_request(store, plant, on_refresh):
                     except WeatherError as error:
                         st.warning(f'{error} 이번에는 사진과 기록으로만 분석합니다.')
                         weather = unavailable_weather(region)
-                context = analysis_context(store, plant["id"], state, image is not None, weather)
+                photo_source = ('이번 분석에 새로 올린 사진' if photo is not None else
+                                '식물 등록 때 저장한 대표 사진 · 현재 모습은 아닐 수 있음' if image is not None else None)
+                context = analysis_context(store, plant["id"], state, image is not None, weather,
+                                           photo_source=photo_source)
                 with st.spinner("사진과 관리 기록을 분석하고 있어요…"):
                     result, usage = analyze(key, context, image)
                 try:
@@ -138,7 +152,7 @@ def _analysis_history(store, plant):
         st.caption("저장 당시의 관찰이에요. AI 제안과 실제로 한 관리 기록은 구분해서 보관해요.")
         if not analyses:
             st.html('<div class="analysis-empty"><b>아직 저장된 AI 관찰이 없어요</b>'
-                    '<p>현재 상태를 입력하고 분석하면<br>이 식물의 관찰을 여기에서 이어볼 수 있어요.</p></div>')
+                    '<p>자동 관찰을 켜고 기록을 남기거나 직접 분석을 요청하면<br>이 식물의 관찰을 여기에서 이어볼 수 있어요.</p></div>')
         for index, analysis in enumerate(analyses):
             _saved_analysis(store, analysis, index, suggestions)
 
@@ -159,6 +173,7 @@ def _saved_analysis(store, analysis, index, suggestions):
             if previous:
                 st.json(previous)
             if analysis["photo_path"]:
+                st.caption('참고 사진: ' + analysis['input'].get('photo_source', '사진 출처 미기록'))
                 display_photo(store, analysis['photo_path'], width=320)
             st.caption(f"참고 기록 {len(analysis['input']['recent_care_logs'])}건 · 모델 {analysis['model']} · "
                        f"응답에 포함된 전체 토큰: {analysis['usage'].get('total_tokens', '정보 없음')}")
