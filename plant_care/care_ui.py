@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 
 from .constants import CARE_TYPES, OUTCOMES
+from .media import PHOTO_UPLOAD_TYPES
 from .time_utils import today_in_seoul
 
 MODES = ["일반 기록", "AI 제안 실행", "실행 후 경과"]
@@ -174,7 +175,7 @@ def care_form(store, plant_id):
                                    help="경과를 아직 확인하지 않았다면 미확인으로 남겨 주세요.", key="care_outcome")
         notes = st.text_area("실제로 한 관리 *" if mode == MODES[1] else "상태와 메모", max_chars=3000,
                              placeholder="확인한 흙 상태, 실제로 한 관리나 이후 잎의 변화를 적어주세요.", key="care_notes")
-        photo = st.file_uploader("오늘의 사진", type=["jpg", "jpeg", "png", "webp"], key="care_photo")
+        photo = st.file_uploader("오늘의 사진", type=PHOTO_UPLOAD_TYPES, max_upload_size=10, key="care_photo")
         label = "기록 저장" if mode == MODES[0] else ("실행 기록 저장" if mode == MODES[1] else "경과 기록 저장")
         save = st.form_submit_button(label, type="primary", width="stretch")
     if save:

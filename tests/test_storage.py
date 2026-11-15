@@ -53,6 +53,22 @@ class StoreTests(unittest.TestCase):
         self.store.add_log(plant, "observation", date.today(), photo=test_photo_bytes())
         self.assertTrue(self.store.photo_path(self.store.list_logs(plant)[0]["photo_path"]).exists())
 
+    def test_mpo_uses_primary_frame_for_plant_and_observation(self):
+        source = BytesIO()
+        Image.new("RGB", (32, 24), "red").save(
+            source, "MPO", save_all=True, append_images=[Image.new("RGB", (32, 24), "blue")]
+        )
+        plant = self.store.add_plant("식물", photo=source.getvalue())
+        self.store.add_log(plant, "observation", date.today(), photo=source.getvalue())
+        for relative in (self.store.get_plant(plant)["photo_path"], self.store.list_logs(plant)[0]["photo_path"]):
+            with self.subTest(relative=relative), Image.open(self.store.photo_path(relative)) as saved:
+                self.assertEqual(saved.format, "JPEG")
+                self.assertEqual(saved.size, (32, 24))
+                red, green, blue = saved.getpixel((16, 12))
+                self.assertGreater(red, 200)
+                self.assertLess(green, 30)
+                self.assertLess(blue, 30)
+
     def test_invalid_image_does_not_create_a_plant_or_leave_a_photo(self):
         with self.assertRaises(ValueError):
             self.store.add_plant("식물", photo=b"not an image")

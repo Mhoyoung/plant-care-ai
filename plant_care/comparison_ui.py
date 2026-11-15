@@ -5,7 +5,7 @@ import streamlit as st
 from .ai_ui import api_key
 from .comparison import CASES, SOURCE, demo_context, export_trial, new_trial, run_side
 from .gemini import AnalysisError, analysis_context
-from .media import prepare_photo
+from .media import PHOTO_UPLOAD_TYPES, prepare_photo
 from .insight_ui import render_insight
 from .private_media import photo as display_private_photo, download
 
@@ -52,7 +52,7 @@ def _comparison_workspace(store, plants, on_refresh):
             by_id = {p["id"]: p for p in plants}
             pid = st.selectbox("비교할 식물", list(by_id), format_func=lambda value: by_id[value]["name"], key="comparison_plant")
             question = st.text_area("현재 모습과 질문", max_chars=3000, placeholder="예: 잎이 처져 있어요. 무엇을 먼저 확인할까요?", key="comparison_question")
-            upload = st.file_uploader("두 분석에 공통으로 사용할 현재 사진 (선택)", type=["jpg", "jpeg", "png", "webp"], key="comparison_photo")
+            upload = st.file_uploader("두 분석에 공통으로 사용할 현재 사진 (선택)", type=PHOTO_UPLOAD_TYPES, max_upload_size=10, key="comparison_photo")
             if question.strip():
                 context = analysis_context(store, pid, question, upload is not None)
                 photo = upload.getvalue() if upload is not None else None

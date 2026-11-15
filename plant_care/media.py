@@ -10,28 +10,33 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
 MAX_PHOTO_PIXELS = 25_000_000
+PHOTO_UPLOAD_TYPES = ("jpg", "jpeg", "png", "webp", "mpo")
+PHOTO_FORMATS = {"JPEG", "PNG", "WEBP", "MPO"}
+PHOTO_FORMAT_LABEL = "JPG(MPO 포함), PNG, WEBP"
 
 
 def prepare_photo(data: bytes) -> bytes:
     """검증한 사진을 메타데이터 없는 JPEG로 변환한다."""
     if not data or len(data) > MAX_PHOTO_BYTES:
-        raise ValueError("사진은 10MB 이하의 JPG, PNG, WEBP 파일로 올려주세요.")
+        raise ValueError(f"사진은 10MB 이하의 {PHOTO_FORMAT_LABEL} 파일로 올려주세요.")
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(BytesIO(data)) as source:
-                if source.format not in {"JPEG", "PNG", "WEBP"}:
-                    raise ValueError("JPG, PNG, WEBP 사진만 저장할 수 있어요.")
+                if source.format not in PHOTO_FORMATS:
+                    raise ValueError(f"{PHOTO_FORMAT_LABEL} 사진만 저장할 수 있어요.")
                 if source.width * source.height > MAX_PHOTO_PIXELS:
                     raise ValueError("사진이 너무 커요. 2,500만 화소 이하로 줄여주세요.")
                 source.verify()
             with Image.open(BytesIO(data)) as source:
+                if source.format == "MPO":
+                    source.seek(0)  # 여러 장 중 대표 사진만 기록에 저장한다.
                 image = ImageOps.exif_transpose(source).convert("RGBA")
                 image.thumbnail((1600, 1600))
                 clean = Image.new("RGB", image.size, "white")
                 clean.paste(image, mask=image.getchannel("A"))
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as error:
-        raise ValueError("사진을 읽을 수 없어요. 다른 JPG, PNG, WEBP 파일을 선택해 주세요.") from error
+        raise ValueError(f"사진을 읽을 수 없어요. 다른 {PHOTO_FORMAT_LABEL} 파일을 선택해 주세요.") from error
     buffer = BytesIO()
     clean.save(buffer, format="JPEG", quality=88)
     return buffer.getvalue()
