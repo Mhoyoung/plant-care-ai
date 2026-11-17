@@ -226,11 +226,11 @@ def plant_detail(plant):
         download(store, "이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
 
 default_view = st.session_state.get("_main_tab_target", "내 정원" if plants else "새 식물")
-generation = st.session_state.get("_main_nav_generation", 0)
-# 세 화면은 외부 AI 호출 없이 준비한다. 상단 탭 전환은 서버 재실행을 요청하지 않는다.
+# Keep one tab widget across reruns so the previous screen is not retained as
+# a stale, faded widget while a replacement key is mounted below it.
 garden_view, register_view, comparison_view = st.tabs(
     ["내 정원", "새 식물", "AI 비교"], default=default_view,
-    key=f"main_views_{generation}", on_change="ignore")
+    key="main_views", on_change="rerun")
 with garden_view:
     if selected_id == -1:
         garden()
