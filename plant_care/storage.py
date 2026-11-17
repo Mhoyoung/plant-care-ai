@@ -161,8 +161,11 @@ class PlantStore:
     def _save_photo(self, photo: bytes | None) -> str | None:
         return save_photo(photo, self.data_root)
 
-    def add_plant(self, name: str, species: str = "", location: str = "", notes: str = "", photo: bytes | None = None) -> int:
+    def add_plant(self, name: str, species: str = "", location: str = "", notes: str = "", photo: bytes | None = None,
+                  auto_ai_enabled: bool = False) -> int:
         name = _text(name, "식물 이름", 100, required=True)
+        if type(auto_ai_enabled) is not bool:
+            raise ValueError('자동 AI 관찰 설정을 확인해 주세요.')
         species = _text(species, "종류", 100)
         location = _text(location, "장소", 200)
         notes = _text(notes, "메모", 3000)
@@ -170,8 +173,9 @@ class PlantStore:
         try:
             with self._connection() as connection:
                 cursor = connection.execute(
-                    "INSERT INTO plants(name, species, location, notes, photo_path, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                    (name, species, location, notes, photo_path, datetime.now(timezone.utc).isoformat()),
+                    "INSERT INTO plants(name, species, location, notes, photo_path, created_at, auto_ai_enabled) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (name, species, location, notes, photo_path, datetime.now(timezone.utc).isoformat(), int(auto_ai_enabled)),
                 )
                 plant_id = cursor.lastrowid
         except Exception:

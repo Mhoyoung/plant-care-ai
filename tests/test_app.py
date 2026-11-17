@@ -99,7 +99,7 @@ class AppTests(unittest.TestCase):
             app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
             app.button(key=f"open_plant_{plant}").click().run()
             app.button(key="detail_ai").click().run()
-            self.assertTrue(any("최근 관찰" in e.label for e in app.expander))
+            self.assertTrue(any("직접 요청" in e.label for e in app.expander))
             app.button(key="detail_record").click().run()
             app.button(key="detail_ai").click().run()
             self.assertEqual(len(app.exception), 0)
@@ -309,7 +309,7 @@ class AppTests(unittest.TestCase):
             relaunched = AppTest.from_file(str(APP_PATH)).run(timeout=15)
             relaunched.selectbox(key="selected_plant").select(plant).run()
             self.assertEqual(len(relaunched.exception), 0)
-            self.assertTrue(any("최근 관찰" in item.label for item in relaunched.expander))
+            self.assertTrue(any("직접 요청" in item.label for item in relaunched.expander))
             api.assert_called_once()
 
     def test_missing_api_key_disables_analysis(self):

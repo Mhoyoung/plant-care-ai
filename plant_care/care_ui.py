@@ -136,6 +136,7 @@ def render_records(store, plant, logs):
                 '<p>실제로 한 관리와 관찰한 변화를 이 식물의 이야기로 남겨요.</p>'
                 f'<div class="care-totals"><span>전체 기록 <b>{len(logs)}</b></span>'
                 f'<span>사진 기록 <b>{photos}</b></span><span>최근 기록 <b>{latest}</b></span></div></section>')
+        auto_ai_setting(store, plant)
         generation = st.session_state.get(f'care_composer_generation_{plant_id}', 0)
         expanded = not logs or mode != MODES[0] or st.session_state.get(f'care_compose_{plant_id}', False)
         with st.container(key=f'care_composer_{plant_id}_{generation}'), st.expander('＋ 새 관리 기록', expanded=expanded):
@@ -162,20 +163,22 @@ def render_records(store, plant, logs):
                 confirm_record_deletion(store, plant_id, selected_log)
 
 
-def care_form(store, plant_id):
-    plant = store.get_plant(plant_id)
-    with st.expander('AI와 함께 관찰하기', expanded=bool(plant['auto_ai_enabled'])):
-        enabled = bool(plant['auto_ai_enabled'])
-        st.write('자동 AI 관찰 켜짐' if enabled else '자동 AI 관찰 꺼짐')
-        st.caption('켜두면 새 기록마다 AI가 식물 종류의 단서와 기록의 변화를 살펴보고, 기본 관리 방법과 다음에 확인할 일을 알려줘요. '
-                   '새 사진이 없으면 등록 사진이나 최근 기록 사진을 참고할 수 있어요.')
-        st.caption('분석할 때 이 식물의 정보, 최근 관리 기록과 이전 제안·경과, 새 사진 또는 저장된 사진 한 장을 Google Gemini로 보냅니다. '
-                   '날씨는 자동으로 보내지 않아요. API 사용량이 발생하며 결제 설정에 따라 과금될 수 있어요.')
-        from .ai_ui import api_key
+def auto_ai_setting(store, plant):
+    """Keep the per-plant choice visible before a new record is written."""
+    from .ai_ui import api_key
+    plant_id = plant['id']
+    enabled = bool(plant['auto_ai_enabled'])
+    with st.container(border=True, key=f'care_auto_ai_{plant_id}'):
+        st.html('<div class="care-auto-ai-label">AI와 함께 관찰하기</div>'
+                f'<div class="care-auto-ai-title">{"새 기록을 저장하면 AI가 자동으로 살펴봐요" if enabled else "새 기록마다 AI 관찰을 이어갈까요?"}</div>')
+        st.caption('켜두면 기록을 저장할 때마다 최근 관리 기록과 이전 제안·경과를 함께 살펴보고 결과를 이 식물에 저장해요. '
+                   '새 사진이 없으면 대표 사진이나 지난 사진은 종류를 알아보는 참고로만 사용해요.')
+        st.caption('식물 정보·기록·사진 한 장을 Google Gemini로 보냅니다. 날씨는 자동으로 보내지 않아요. '
+                   'API 사용량이 발생하며 결제 설정에 따라 과금될 수 있어요.')
         available = bool(api_key())
         if not available and not enabled:
             st.info('AI 분석 연결이 준비되면 자동 관찰을 켤 수 있어요.')
-        if st.button('자동 AI 관찰 끄기' if enabled else 'Google Gemini 자동 관찰 켜기',
+        if st.button('자동 관찰 끄기' if enabled else 'Google Gemini 자동 관찰 켜기',
                      key=f'auto_ai_change_{plant_id}', disabled=not enabled and not available):
             try:
                 store.set_auto_ai(plant_id, not enabled)
@@ -184,6 +187,10 @@ def care_form(store, plant_id):
             else:
                 st.session_state['_notice'] = '자동 AI 관찰을 껐어요.' if enabled else '이 식물의 자동 AI 관찰을 켰어요.'
                 st.rerun()
+
+
+def care_form(store, plant_id):
+    plant = store.get_plant(plant_id)
     mode = st.radio("남길 기록", MODES, horizontal=True, key=f"care_mode_{plant_id}",
                     on_change=change_care_mode, args=(plant_id,))
     suggestions = store.list_suggestions(plant_id)

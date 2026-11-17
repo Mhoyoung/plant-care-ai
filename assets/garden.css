@@ -55,6 +55,9 @@
 .st-key-registration_submit { margin-top:4px; padding-top:18px; border-top:1px solid #e7ecdf; }
 .st-key-registration_workspace button { min-height:48px; font-size:14px; }
 .care-intro { padding:22px 24px; border:1px solid #e1e9d9; border-radius:18px; background:linear-gradient(110deg,#edf3e5,#f3f6ec); }
+[class*="st-key-care_auto_ai_"] { background:#fff; border:1px solid #dfe8d6; border-radius:16px; }
+.care-auto-ai-label { color:#54734a; font-size:12px; font-weight:650; }
+.care-auto-ai-title { color:#254632; font-size:17px; font-weight:700; line-height:1.5; margin:4px 0 8px; }
 .care-label { font-size:12px; font-weight:600; color:#54734a; }
 .care-intro h3 { margin:8px 0 6px; padding:0; font-size:22px !important; line-height:1.4; color:#254632; }
 .care-intro p { color:#566b50; font-size:14px; line-height:1.8; margin:0; }

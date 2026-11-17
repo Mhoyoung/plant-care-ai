@@ -85,6 +85,7 @@ def register_plant():
     if st.session_state.pop("_reset_registration", False):
         for key in ("plant_name", "plant_species", "plant_location", "plant_notes"):
             st.session_state[key] = ""
+        st.session_state["plant_auto_ai"] = False
         st.session_state["_registration_photo_generation"] = st.session_state.get("_registration_photo_generation", 0) + 1
     with st.container(key="registration_workspace"):
         st.html('<section class="registration-intro" aria-label="새 식물 등록 안내">'
@@ -111,12 +112,24 @@ def register_plant():
             with st.expander("처음 상태와 메모 · 선택"):
                 notes = st.text_area("처음 상태와 메모", max_chars=3000,
                                      placeholder="처음 만난 날, 잎의 모습, 기억하고 싶은 내용을 적어 주세요.", key="plant_notes")
+            st.html('<div class="registration-section"><h3>AI와 함께 키우기</h3>'
+                    '<p>관리 기록을 남길 때 AI가 자동으로 살펴볼지 선택해 주세요.</p></div>')
+            from plant_care.ai_ui import api_key
+            auto_ai_available = bool(api_key())
+            auto_ai_enabled = st.checkbox('새 관리 기록마다 Google Gemini 자동 관찰', value=False,
+                                          key='plant_auto_ai', disabled=not auto_ai_available)
+            st.caption('켜두면 이 식물의 정보·최근 기록·이전 제안과 사진 한 장이 기록 저장 때마다 Google Gemini로 전송돼요. '
+                       'AI 사용량이 발생하며 결제 설정에 따라 과금될 수 있어요. 나중에 식물의 관리 기록 화면에서 바꿀 수 있어요.')
+            if not auto_ai_available:
+                st.caption('AI 분석 연결이 준비되면 자동 관찰을 선택할 수 있어요.')
             with st.container(key="registration_submit"):
                 st.caption('등록하면 식물 상세 화면으로 이동해요. 그곳에서 관리 기록과 케어 일정을 시작할 수 있어요.')
                 register = st.form_submit_button("식물 등록", type="primary", width="stretch")
     if register:
         try:
-            new_id = store.add_plant(name=name, species=species, location=location, notes=notes, photo=photo.getvalue() if photo is not None else None)
+            new_id = store.add_plant(name=name, species=species, location=location, notes=notes,
+                                     photo=photo.getvalue() if photo is not None else None,
+                                     auto_ai_enabled=auto_ai_enabled)
         except ValueError as error:
             st.error(str(error))
         except CloudError as error:
@@ -226,8 +239,7 @@ def plant_detail(plant):
         download(store, "이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
 
 default_view = st.session_state.get("_main_tab_target", "내 정원" if plants else "새 식물")
-# Keep one tab widget across reruns so the previous screen is not retained as
-# a stale, faded widget while a replacement key is mounted below it.
+# Keep one tab widget across reruns instead of mounting a replacement below it.
 garden_view, register_view, comparison_view = st.tabs(
     ["내 정원", "새 식물", "AI 비교"], default=default_view,
     key="main_views", on_change="rerun")

@@ -58,16 +58,24 @@ def analyze_saved_log(store, plant_id: int, log_id: int) -> bool:
 
 def render_analysis(store, plant, on_refresh=None):
     analyses = store.list_analyses(plant["id"])
+    automatic = bool(plant['auto_ai_enabled'])
     with st.container(key="analysis_workspace"):
         st.html('<section class="analysis-intro" aria-label="AI 분석 안내">'
                 '<span class="analysis-label">AI 식물 파트너</span>'
                 '<h3>오늘의 변화를 함께 살펴봐요</h3>'
-                '<p>식물 종류의 단서와 기록의 변화를 살피고, 다음 관리 방법을 함께 찾아요.</p>'
+                '<p>관리 기록이 쌓일수록 이전 모습과 오늘의 변화를 함께 참고해요.</p>'
                 '<ol class="analysis-steps" aria-label="분석 순서">'
-                '<li><span>1</span>상태 입력</li><li><span>2</span>전송 확인</li>'
-                '<li><span>3</span>결과 살펴보기</li></ol></section>')
-        with st.container(key="analysis_draft"), st.expander("새 AI 분석 요청", expanded=not analyses):
-            st.caption('직접 질문할 수도 있어요. 자동 관찰은 관리 기록 화면에서 식물별로 켤 수 있어요.')
+                '<li><span>1</span>기록 남기기</li><li><span>2</span>AI 관찰</li>'
+                '<li><span>3</span>다음 변화 확인</li></ol></section>')
+        if automatic:
+            st.success('자동 관찰이 켜져 있어요. 새 관리 기록을 저장하면 AI가 살펴보고 결과를 여기에 남겨요.')
+        else:
+            st.info('이 식물의 자동 관찰은 꺼져 있어요. 관리 기록 화면에서 켜면 다음 기록부터 자동으로 분석해요.')
+            from .ui import open_tab
+            st.button('관리 기록에서 자동 관찰 설정하기', key=f'ai_open_auto_{plant["id"]}',
+                      on_click=open_tab, args=(plant['id'], '관리 기록'))
+        with st.container(key="analysis_draft"), st.expander("추가로 AI에게 질문하기", expanded=False):
+            st.caption('관리 기록과 별개로 지금 궁금한 점을 직접 물어볼 수 있어요.')
             _analysis_request(store, plant, on_refresh)
         _analysis_history(store, plant)
 
@@ -146,6 +154,7 @@ def _analysis_request(store, plant, on_refresh):
 def _analysis_history(store, plant):
     analyses = store.list_analyses(plant["id"])
     suggestions = store.list_suggestions(plant["id"])
+    logs_by_id = {log['id']: log for log in store.list_logs(plant['id'])}
     with st.container(key="analysis_history"):
         st.html('<div class="analysis-history-heading"><h3>쌓아둔 AI 관찰</h3>'
                 f'<span>{len(analyses)}건</span></div>')
@@ -154,13 +163,16 @@ def _analysis_history(store, plant):
             st.html('<div class="analysis-empty"><b>아직 저장된 AI 관찰이 없어요</b>'
                     '<p>자동 관찰을 켜고 기록을 남기거나 직접 분석을 요청하면<br>이 식물의 관찰을 여기에서 이어볼 수 있어요.</p></div>')
         for index, analysis in enumerate(analyses):
-            _saved_analysis(store, analysis, index, suggestions)
+            _saved_analysis(store, analysis, index, suggestions, logs_by_id)
 
 
-def _saved_analysis(store, analysis, index, suggestions):
+def _saved_analysis(store, analysis, index, suggestions, logs_by_id):
     timestamp = datetime.fromisoformat(analysis["created_at"]).astimezone(ZoneInfo("Asia/Seoul"))
-    with st.expander(f"{timestamp:%Y.%m.%d %H:%M} · {'최근 관찰' if index == 0 else '지난 관찰'}", expanded=index == 0):
+    origin = '자동 관찰' if analysis['source_log_id'] else '직접 요청'
+    with st.expander(f"{timestamp:%Y.%m.%d %H:%M} · {origin}", expanded=index == 0):
         result = analysis["result"]
+        if source := logs_by_id.get(analysis['source_log_id']):
+            st.caption(f"{source['occurred_on']} 관리 기록을 저장한 뒤 남긴 AI 관찰이에요.")
         render_insight(result, analysis['input'], f"analysis_{analysis['id']}", store=store,
                        suggestions=[s for s in suggestions if s['analysis_id'] == analysis['id']])
         if weather := analysis['input'].get('outdoor_weather'):

@@ -19,6 +19,33 @@ APP_PATH = Path(__file__).resolve().parents[1] / 'app.py'
 
 
 class AutomaticObservationTests(unittest.TestCase):
+    def test_registration_opt_in_analyzes_each_later_record_with_history(self):
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.dict(os.environ, {'PLANT_CARE_DATA_DIR': folder, 'STORAGE_BACKEND': 'local'}), \
+                patch('plant_care.ai_ui.api_key', return_value='test-key'), \
+                patch('plant_care.ai_ui.analyze', return_value=(RESULT, {})) as ai:
+            store = PlantStore(folder)
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=15)
+            app.text_input(key='plant_name').set_value('매일 관찰할 식물')
+            app.checkbox(key='plant_auto_ai').check()
+            next(button for button in app.button if button.label == '식물 등록').click().run()
+            plant = store.list_plants()[0]['id']
+            self.assertEqual(store.get_plant(plant)['auto_ai_enabled'], 1)
+            ai.assert_not_called()
+
+            app.text_area(key='care_notes').set_value('첫날 잎은 초록색이에요')
+            next(button for button in app.button if button.label == '기록 저장').click().run()
+            self.assertEqual(ai.call_count, 1)
+            app.button(key='detail_record').click().run()
+            app.text_area(key='care_notes').set_value('둘째 날 잎 끝이 갈색이에요')
+            next(button for button in app.button if button.label == '기록 저장').click().run()
+            self.assertEqual(ai.call_count, 2)
+            context = ai.call_args.args[1]
+            self.assertEqual(len(context['recent_care_logs']), 2)
+            self.assertEqual(context['recent_care_logs'][0]['notes'], '첫날 잎은 초록색이에요')
+            self.assertEqual(context['recent_care_logs'][1]['notes'], '둘째 날 잎 끝이 갈색이에요')
+            self.assertEqual(len(store.list_analyses(plant)), 2)
+
     def test_uses_saved_profile_photo_for_identity_then_prefers_new_photo(self):
         with tempfile.TemporaryDirectory() as folder, \
                 patch('plant_care.ai_ui.api_key', return_value='test-key'), \
