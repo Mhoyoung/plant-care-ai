@@ -135,6 +135,40 @@ class StoreTests(unittest.TestCase):
         self.assertTrue(self.store.photo_path(photo).exists())
         self.assertEqual(len(self.store.list_logs(plant)), 1)
 
+    def test_delete_plant_removes_linked_data_and_photos_only_for_that_plant(self):
+        target = self.store.add_plant('집 식물 2', photo=test_photo_bytes())
+        kept = self.store.add_plant('집 식물 1', photo=test_photo_bytes(), auto_ai_enabled=True)
+        target_log = self.store.add_log(target, 'observation', date.today(), photo=test_photo_bytes())
+        self.store.add_analysis(target, 'test', {}, {'actions': ['상태 확인']}, {},
+                                photo=test_photo_bytes(), source_log_id=target_log)
+        suggestion = self.store.list_suggestions(target)[0]['id']
+        self.store.add_schedule(target, '상태 확인', 'observation', date.today(),
+                                source_suggestion_id=suggestion)
+        self.store.add_log(kept, 'observation', date.today(), photo=test_photo_bytes())
+        removed_photos = [self.store.get_plant(target)['photo_path'],
+                          self.store.list_logs(target)[0]['photo_path'],
+                          self.store.list_analyses(target)[0]['photo_path']]
+        kept_photo = self.store.get_plant(kept)['photo_path']
+
+        self.store.delete_plant(target)
+
+        with self.assertRaises(ValueError):
+            self.store.get_plant(target)
+        self.assertEqual([plant['id'] for plant in self.store.list_plants()], [kept])
+        with self.store._connection() as connection:
+            for table in ('care_logs', 'ai_analyses', 'care_schedules', 'plant_weather_regions'):
+                self.assertEqual(connection.execute(f'SELECT COUNT(*) FROM {table} WHERE plant_id=?',
+                                                    (target,)).fetchone()[0], 0)
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM ai_suggestions').fetchone()[0], 0)
+            self.assertEqual(connection.execute('PRAGMA foreign_key_check').fetchall(), [])
+        self.assertTrue(self.store.get_plant(kept)['auto_ai_enabled'])
+        self.assertEqual(len(self.store.list_logs(kept)), 1)
+        self.assertTrue(self.store.photo_path(kept_photo).exists())
+        for photo in removed_photos:
+            self.assertFalse(self.store.photo_path(photo).exists())
+        with self.assertRaises(ValueError):
+            self.store.delete_plant(target)
+
     def test_ai_context_contains_observed_results_and_only_requested_recent_logs(self):
         plant = self.store.add_plant("식물")
         today = date.today()

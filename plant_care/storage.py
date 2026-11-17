@@ -290,6 +290,33 @@ class PlantStore:
         for name in photos:
             self._delete_committed_photo(name)
 
+    def delete_plant(self, plant_id: int) -> None:
+        """Remove one plant and all its linked data, then clean up unused photos."""
+        with self._connection() as connection:
+            plant = connection.execute('SELECT photo_path FROM plants WHERE id=?', (plant_id,)).fetchone()
+            if plant is None:
+                raise ValueError('등록된 식물을 찾을 수 없어요. 새로고침해 확인해 주세요.')
+            photos = {plant['photo_path']}
+            for table in ('care_logs', 'ai_analyses'):
+                photos.update(row['photo_path'] for row in connection.execute(
+                    f'SELECT photo_path FROM {table} WHERE plant_id=?', (plant_id,)))
+            # Logs and analyses can reference each other through suggestions.
+            # Break only this plant's links inside the same transaction.
+            connection.execute('DELETE FROM care_schedules WHERE plant_id=?', (plant_id,))
+            connection.execute('UPDATE care_logs SET suggestion_id=NULL, link_type=NULL WHERE plant_id=?', (plant_id,))
+            connection.execute('UPDATE ai_analyses SET source_log_id=NULL WHERE plant_id=?', (plant_id,))
+            connection.execute('DELETE FROM care_logs WHERE plant_id=?', (plant_id,))
+            connection.execute('DELETE FROM ai_suggestions WHERE analysis_id IN '
+                               '(SELECT id FROM ai_analyses WHERE plant_id=?)', (plant_id,))
+            connection.execute('DELETE FROM ai_analyses WHERE plant_id=?', (plant_id,))
+            connection.execute('DELETE FROM plant_weather_regions WHERE plant_id=?', (plant_id,))
+            connection.execute('DELETE FROM plants WHERE id=?', (plant_id,))
+            photos = [name for name in photos if name and not any(connection.execute(
+                f'SELECT 1 FROM {table} WHERE photo_path=? LIMIT 1', (name,)).fetchone()
+                for table in ('plants', 'care_logs', 'ai_analyses'))]
+        for name in photos:
+            self._delete_committed_photo(name)
+
     def _delete_committed_photo(self, relative: str) -> None:
         self._remove_photo(relative)
 

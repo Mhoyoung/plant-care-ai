@@ -28,6 +28,7 @@ ui.style()
 # Cloud hot reload can briefly keep old imported store classes. Wait for a cold
 # restart before reading/writing the extended snapshot rather than mixing versions.
 if not all(callable(getattr(cls, 'add_schedule', None)) and callable(getattr(cls, 'set_auto_ai', None))
+           and callable(getattr(cls, 'delete_plant', None))
            for cls in (PlantStore, CloudPlantStore)) or 'care_schedules' not in TABLES:
     st.warning('업데이트 적용을 위한 재시작이 필요해요. 앱 관리자가 재시작한 뒤 다시 접속해 주세요.')
     st.stop()
@@ -184,6 +185,33 @@ def garden():
                 with slot:
                     ui.plant_card(store, plant, records[plant["id"]], analyses[plant["id"]])
 
+@st.dialog('식물과 모든 데이터 삭제', width='small', dismissible=False)
+def confirm_plant_deletion(plant, logs, analyses, schedules):
+    plant_id = plant['id']
+    st.write(f"**{plant['name']}**을(를) 삭제하시겠습니까?")
+    st.caption(f"대표 사진, 관리 기록 {len(logs)}건, AI 분석 {len(analyses)}건, 케어 일정 {len(schedules)}건과 연결된 제안·사진이 함께 삭제됩니다. 되돌릴 수 없어요.")
+    typed = st.text_input('확인을 위해 식물 이름을 입력해 주세요', key=f'delete_plant_name_{plant_id}')
+    cancel, confirm = st.columns(2, gap='small')
+    if cancel.button('취소', key=f'delete_plant_cancel_{plant_id}', width='stretch'):
+        st.session_state.pop(f'delete_plant_pending_{plant_id}', None)
+        st.rerun()
+    if confirm.button('식물 삭제', key=f'delete_plant_confirm_{plant_id}', type='primary', width='stretch',
+                      disabled=typed.strip() != plant['name']):
+        try:
+            store.delete_plant(plant_id)
+        except ValueError as error:
+            st.error(str(error))
+        except (OSError, sqlite3.Error):
+            st.error('식물을 삭제하지 못했어요. 새로고침해 저장 상태를 확인해 주세요.')
+        else:
+            st.session_state.pop(f'delete_plant_pending_{plant_id}', None)
+            st.session_state.pop(f'delete_plant_name_{plant_id}', None)
+            ui.navigate(-1)
+            st.session_state['_notice'] = f"{plant['name']}과(와) 연결된 데이터를 삭제했어요."
+            refresh_team_records()
+            st.rerun()
+
+
 def plant_detail(plant):
     if target := st.session_state.pop(f"care_after_save_{plant['id']}", None):
         open_care(plant["id"], *target)
@@ -237,6 +265,12 @@ def plant_detail(plant):
     with st.container(key="detail_archive"), st.expander("이 식물의 기록 보관"):
         st.caption("관리 기록과 AI 분석을 JSON 파일로 보관해요. 사진까지 보관하려면 메뉴의 전체 정원 백업을 이용해 주세요.")
         download(store, "이 식물의 기록 내려받기", data=json.dumps(store.export_plant(plant["id"]), ensure_ascii=False, indent=2), file_name=f"plant-{plant['id']}-records.json", mime="application/json", help="사진까지 보관하려면 메뉴의 '기록 보관과 백업'에서 전체 정원 백업을 준비하세요.")
+    with st.expander('이 식물 삭제'):
+        st.caption('식물과 연결된 모든 기록, AI 분석, 일정과 사진을 함께 삭제해요.')
+        if st.button('이 식물과 모든 데이터 삭제', key=f"delete_plant_open_{plant['id']}", type='secondary'):
+            st.session_state[f"delete_plant_pending_{plant['id']}"] = True
+    if st.session_state.get(f"delete_plant_pending_{plant['id']}"):
+        confirm_plant_deletion(plant, logs, analyses, store.list_schedules(plant['id']))
 
 default_view = st.session_state.get("_main_tab_target", "내 정원" if plants else "새 식물")
 # Keep one tab widget across reruns instead of mounting a replacement below it.
