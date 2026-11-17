@@ -103,7 +103,7 @@ def detail_hero(store, plant):
             with st.expander("식물 메모"):
                 st.html(f'<div class="detail-notes">{escape(plant["notes"])}</div>')
 
-def timeline(store, logs, care_types, outcomes, limit=None, *, journal=False):
+def timeline(store, logs, care_types, outcomes, limit=None, *, journal=False, card_footer=None):
     if not logs:
         st.html(f'<div class="{"care-empty" if journal else "quiet-empty"}"><span>아직 첫 페이지가 비어 있어요.</span>'
                 '<p>물주기나 잎의 작은 변화부터 기록해 보세요.</p></div>')
@@ -144,3 +144,5 @@ def timeline(store, logs, care_types, outcomes, limit=None, *, journal=False):
                     st.caption(f"{label} · {log['suggestion_text']}")
             if log["photo_path"]:
                 display_photo(store, log['photo_path'], width=320)
+            if journal and card_footer is not None:
+                card_footer(log)

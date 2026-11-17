@@ -78,21 +78,45 @@ def suggestion_card(store, suggestion, prefix):
                           on_click=prepare_ai_schedule, args=(suggestion['plant_id'], suggestion['id']))
 
 
-def delete_selected_log(store, plant_id):
-    """Run before Streamlit redraws the page, avoiding a second interrupted rerun."""
-    if not st.session_state.get(f'care_delete_confirm_{plant_id}'):
-        st.session_state[f'care_delete_error_{plant_id}'] = '삭제할 기록과 연결된 분석을 확인해 주세요.'
+def show_delete_confirmation(plant_id, log_id):
+    st.session_state[f'care_delete_pending_{plant_id}'] = log_id
+    st.session_state.pop(f'care_delete_error_{plant_id}', None)
+
+
+def cancel_delete_confirmation(plant_id):
+    st.session_state.pop(f'care_delete_pending_{plant_id}', None)
+    st.session_state.pop(f'care_delete_error_{plant_id}', None)
+
+
+def delete_selected_log(store, plant_id, log_id):
+    """Delete only the record currently confirmed in its own card."""
+    if st.session_state.get(f'care_delete_pending_{plant_id}') != log_id:
         return
     try:
-        store.delete_log(plant_id, st.session_state[f'care_delete_choice_{plant_id}'])
+        store.delete_log(plant_id, log_id)
     except ValueError as error:
         st.session_state[f'care_delete_error_{plant_id}'] = str(error)
     except (OSError, sqlite3.Error):
         st.session_state[f'care_delete_error_{plant_id}'] = '기록을 삭제하지 못했어요. 새로고침해 저장 상태를 확인해 주세요.'
     else:
         st.session_state['_notice'] = '선택한 기록을 삭제했어요.'
-        st.session_state[f'care_delete_confirm_{plant_id}'] = False
-        st.session_state.pop(f'care_delete_choice_{plant_id}', None)
+        st.session_state.pop(f'care_delete_pending_{plant_id}', None)
+
+
+def record_delete_controls(store, plant_id, log):
+    log_id = log['id']
+    if st.session_state.get(f'care_delete_pending_{plant_id}') != log_id:
+        st.button('이 기록 삭제', key=f'care_delete_open_{plant_id}_{log_id}', type='tertiary',
+                  on_click=show_delete_confirmation, args=(plant_id, log_id))
+        return
+    st.warning(f"{log['occurred_on']} · {CARE_TYPES[log['kind']]} 기록을 삭제할까요? 사진과 이 기록에서 만든 자동 AI 분석도 함께 삭제돼요.")
+    cancel, confirm = st.columns(2, gap='small')
+    cancel.button('취소', key=f'care_delete_cancel_{plant_id}_{log_id}', width='stretch',
+                  on_click=cancel_delete_confirmation, args=(plant_id,))
+    confirm.button('삭제 확정', key=f'care_delete_confirm_{plant_id}_{log_id}', type='primary', width='stretch',
+                   on_click=delete_selected_log, args=(store, plant_id, log_id))
+    if error := st.session_state.pop(f'care_delete_error_{plant_id}', None):
+        st.error(error)
 
 
 def render_records(store, plant, logs):
@@ -126,21 +150,8 @@ def render_records(store, plant, logs):
                     st.html('<div class="care-empty"><b>이 종류의 기록은 아직 없어요</b>'
                             '<p>전체 기록을 선택하면 다른 관리와 관찰을 볼 수 있어요.</p></div>')
             if filtered or not logs:
-                ui.timeline(store, filtered, CARE_TYPES, OUTCOMES, journal=True)
-            if logs:
-                with st.expander('잘못 남긴 기록 삭제'):
-                    st.caption('선택한 관리 기록과 사진이 삭제돼요. 이 기록에서 자동 생성된 AI 분석도 함께 정리됩니다.')
-                    choices = {log['id']: log for log in logs}
-                    with st.form(f'delete_care_log_{plant_id}'):
-                        log_id = st.selectbox('삭제할 기록', list(choices),
-                            format_func=lambda value: f"{choices[value]['occurred_on']} · {CARE_TYPES[choices[value]['kind']]} · "
-                            f"{choices[value]['notes'][:35] or ('사진 있음' if choices[value]['photo_path'] else '메모 없음')}",
-                            key=f'care_delete_choice_{plant_id}')
-                        st.checkbox('이 기록과 연결된 자동 AI 분석을 삭제할게요',
-                                    key=f'care_delete_confirm_{plant_id}')
-                        st.form_submit_button('선택한 기록 삭제', on_click=delete_selected_log, args=(store, plant_id))
-                    if error := st.session_state.pop(f'care_delete_error_{plant_id}', None):
-                        st.error(error)
+                ui.timeline(store, filtered, CARE_TYPES, OUTCOMES, journal=True,
+                            card_footer=lambda log: record_delete_controls(store, plant_id, log))
 
 
 def care_form(store, plant_id):
