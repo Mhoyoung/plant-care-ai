@@ -61,6 +61,9 @@ class FakeCloud:
             return self.photos[path.split('/plant-care-photos/')[1]]
         if path.startswith('/storage/v1/object/plant-care-photos/'):
             name = path.split('/plant-care-photos/')[1]
+            if method == 'DELETE':
+                self.photos.pop(name, None)
+                return None
             if name in self.photos and not upsert:
                 raise CloudError('existing photo')
             self.photos[name] = data
@@ -84,6 +87,16 @@ class CloudStoreTests(unittest.TestCase):
         store = CloudPlantStore(URL, SECRET)
         self.stores.append(store)
         return store
+
+    def test_delete_record_commits_before_removing_private_photo(self):
+        store = self.store()
+        plant = store.add_plant('식물')
+        log_id = store.add_log(plant, 'observation', date.today(), photo=test_photo_bytes())
+        photo = store.list_logs(plant)[0]['photo_path']
+        self.assertIn(photo, self.cloud.photos)
+        store.delete_log(plant, log_id)
+        self.assertEqual(self.store().list_logs(plant), [])
+        self.assertNotIn(photo, self.cloud.photos)
 
     def cached_store(self, session, **settings):
         store = create_store(None, {'STORAGE_BACKEND': 'supabase', 'SUPABASE_URL': URL,

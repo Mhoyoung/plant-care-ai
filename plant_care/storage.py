@@ -249,6 +249,46 @@ class PlantStore:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(query, parameters)]
 
+    def delete_log(self, plant_id: int, log_id: int) -> None:
+        """Delete one owned record and its unused automatic analysis in one transaction."""
+        photos = []
+        with self._connection() as connection:
+            log = connection.execute('SELECT * FROM care_logs WHERE id=? AND plant_id=?',
+                                     (log_id, plant_id)).fetchone()
+            if log is None:
+                raise ValueError('이 식물의 기록을 찾을 수 없어요. 새로고침해 확인해 주세요.')
+            if connection.execute('SELECT 1 FROM care_schedules WHERE completed_log_id=?', (log_id,)).fetchone():
+                raise ValueError('완료한 일정과 연결된 기록이에요. 먼저 일정과의 연결을 확인해 주세요.')
+            if log['link_type'] == 'execution' and connection.execute(
+                    "SELECT 1 FROM care_logs WHERE suggestion_id=? AND link_type='outcome' LIMIT 1",
+                    (log['suggestion_id'],)).fetchone():
+                raise ValueError('이 실행 기록에는 이후 경과가 연결돼 있어요. 경과를 먼저 확인해 주세요.')
+            analyses = connection.execute('SELECT id, photo_path FROM ai_analyses WHERE source_log_id=?',
+                                          (log_id,)).fetchall()
+            for analysis in analyses:
+                linked = connection.execute('SELECT 1 FROM ai_suggestions s '
+                    'WHERE s.analysis_id=? AND (EXISTS(SELECT 1 FROM care_logs l WHERE l.suggestion_id=s.id) '
+                    'OR EXISTS(SELECT 1 FROM care_schedules c WHERE c.source_suggestion_id=s.id)) LIMIT 1',
+                    (analysis['id'],)).fetchone()
+                if linked:
+                    raise ValueError('이 기록의 AI 제안이 다른 기록이나 일정에 연결돼 있어요. 연결 내용을 먼저 확인해 주세요.')
+            for analysis in analyses:
+                connection.execute('DELETE FROM ai_suggestions WHERE analysis_id=?', (analysis['id'],))
+                connection.execute('DELETE FROM ai_analyses WHERE id=?', (analysis['id'],))
+                if analysis['photo_path']:
+                    photos.append(analysis['photo_path'])
+            connection.execute('DELETE FROM care_logs WHERE id=? AND plant_id=?', (log_id, plant_id))
+            if log['photo_path']:
+                photos.append(log['photo_path'])
+            photos = [name for name in set(photos) if not any(connection.execute(
+                f'SELECT 1 FROM {table} WHERE photo_path=? LIMIT 1', (name,)).fetchone()
+                for table in ('plants', 'care_logs', 'ai_analyses'))]
+        for name in photos:
+            self._delete_committed_photo(name)
+
+    def _delete_committed_photo(self, relative: str) -> None:
+        self._remove_photo(relative)
+
     def last_watered(self, plant_id: int) -> str | None:
         with self._connection() as connection:
             row = connection.execute(

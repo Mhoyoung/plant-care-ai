@@ -163,6 +163,15 @@ class CloudPlantStore(PlantStore):
         # 참조되지 않는 업로드는 관리자 백업/정리 절차로 다룬다.
         pass
 
+    def _delete_committed_photo(self, relative):
+        # The snapshot is committed first. A failed Storage cleanup must not
+        # make the user repeat a successful record deletion.
+        try:
+            self.client.request('/storage/v1/object/plant-care-photos/' + self._remote_photo(relative), 'DELETE')
+        except CloudError:
+            pass
+        self._photo_cache.pop(relative, None)
+
     def read_photo(self, relative):
         relative = photo_name(relative)
         if relative not in self._photo_cache:

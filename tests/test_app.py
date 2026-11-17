@@ -20,6 +20,25 @@ def click_button(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_care_history_requires_confirmation_before_deleting_one_record(self):
+        from plant_care.time_utils import today_in_seoul
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {
+                'PLANT_CARE_DATA_DIR': folder, 'STORAGE_BACKEND': 'local'}):
+            store = PlantStore(folder)
+            plant = store.add_plant('삭제 시험')
+            wrong = store.add_log(plant, 'observation', today_in_seoul(), '잘못 올린 사진', photo=test_photo_bytes())
+            keep = store.add_log(plant, 'watering', today_in_seoul(), '남길 기록')
+            app = AppTest.from_file(str(APP_PATH)).run(timeout=20)
+            app.button(key=f'open_plant_{plant}').click().run()
+            next(item for item in app.selectbox if item.label == '삭제할 기록').select(wrong).run()
+            click_button(app, '선택한 기록 삭제')
+            self.assertEqual(len(store.list_logs(plant)), 2)
+            next(item for item in app.selectbox if item.label == '삭제할 기록').select(wrong)
+            next(item for item in app.checkbox if item.label == '이 기록과 연결된 자동 AI 분석을 삭제할게요').check()
+            click_button(app, '선택한 기록 삭제')
+            self.assertEqual([log['id'] for log in store.list_logs(plant)], [keep])
+            self.assertEqual(len(app.exception), 0)
+
     def test_care_history_filters_without_writes_and_keeps_full_notes_and_links(self):
         from plant_care.gemini import analysis_context
         from plant_care.time_utils import today_in_seoul

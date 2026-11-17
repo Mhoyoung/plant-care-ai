@@ -106,6 +106,35 @@ class StoreTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 self.store.photo_path(value)
 
+    def test_delete_record_removes_photo_and_its_unused_auto_analysis(self):
+        plant = self.store.add_plant('식물')
+        log_id = self.store.add_log(plant, 'observation', date.today(), photo=test_photo_bytes())
+        log_photo = self.store.list_logs(plant)[0]['photo_path']
+        self.store.add_analysis(plant, 'test', {}, {'actions': ['상태 확인']}, {},
+                                photo=test_photo_bytes(), source_log_id=log_id)
+        ai_photo = self.store.list_analyses(plant)[0]['photo_path']
+        self.store.delete_log(plant, log_id)
+        self.assertEqual(self.store.list_logs(plant), [])
+        self.assertEqual(self.store.list_analyses(plant), [])
+        self.assertEqual(self.store.list_suggestions(plant), [])
+        self.assertFalse(self.store.photo_path(log_photo).exists())
+        self.assertFalse(self.store.photo_path(ai_photo).exists())
+
+    def test_delete_record_rejects_wrong_plant_and_linked_ai_suggestion(self):
+        plant = self.store.add_plant('식물')
+        other = self.store.add_plant('다른 식물')
+        log_id = self.store.add_log(plant, 'observation', date.today(), photo=test_photo_bytes())
+        photo = self.store.list_logs(plant)[0]['photo_path']
+        with self.assertRaises(ValueError):
+            self.store.delete_log(other, log_id)
+        self.store.add_analysis(plant, 'test', {}, {'actions': ['상태 확인']}, {}, source_log_id=log_id)
+        suggestion_id = self.store.list_suggestions(plant)[0]['id']
+        self.store.add_schedule(plant, '상태 확인', 'observation', date.today(), source_suggestion_id=suggestion_id)
+        with self.assertRaises(ValueError):
+            self.store.delete_log(plant, log_id)
+        self.assertTrue(self.store.photo_path(photo).exists())
+        self.assertEqual(len(self.store.list_logs(plant)), 1)
+
     def test_ai_context_contains_observed_results_and_only_requested_recent_logs(self):
         plant = self.store.add_plant("식물")
         today = date.today()

@@ -110,6 +110,29 @@ def render_records(store, plant, logs):
                             '<p>전체 기록을 선택하면 다른 관리와 관찰을 볼 수 있어요.</p></div>')
             if filtered or not logs:
                 ui.timeline(store, filtered, CARE_TYPES, OUTCOMES, journal=True)
+            if logs:
+                with st.expander('잘못 남긴 기록 삭제'):
+                    st.caption('선택한 관리 기록과 사진이 삭제돼요. 이 기록에서 자동 생성된 AI 분석도 함께 정리됩니다.')
+                    choices = {log['id']: log for log in logs}
+                    with st.form(f'delete_care_log_{plant_id}'):
+                        log_id = st.selectbox('삭제할 기록', list(choices),
+                            format_func=lambda value: f"{choices[value]['occurred_on']} · {CARE_TYPES[choices[value]['kind']]} · "
+                            f"{choices[value]['notes'][:35] or ('사진 있음' if choices[value]['photo_path'] else '메모 없음')}")
+                        confirmed = st.checkbox('이 기록과 연결된 자동 AI 분석을 삭제할게요')
+                        delete = st.form_submit_button('선택한 기록 삭제')
+                    if delete:
+                        if not confirmed:
+                            st.error('삭제할 기록과 연결된 분석을 확인해 주세요.')
+                        else:
+                            try:
+                                store.delete_log(plant_id, log_id)
+                            except ValueError as error:
+                                st.error(str(error))
+                            except (OSError, sqlite3.Error):
+                                st.error('기록을 삭제하지 못했어요. 새로고침해 저장 상태를 확인해 주세요.')
+                            else:
+                                st.session_state['_notice'] = '선택한 기록을 삭제했어요.'
+                                st.rerun()
 
 
 def care_form(store, plant_id):
