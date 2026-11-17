@@ -78,6 +78,23 @@ def suggestion_card(store, suggestion, prefix):
                           on_click=prepare_ai_schedule, args=(suggestion['plant_id'], suggestion['id']))
 
 
+def delete_selected_log(store, plant_id):
+    """Run before Streamlit redraws the page, avoiding a second interrupted rerun."""
+    if not st.session_state.get(f'care_delete_confirm_{plant_id}'):
+        st.session_state[f'care_delete_error_{plant_id}'] = '삭제할 기록과 연결된 분석을 확인해 주세요.'
+        return
+    try:
+        store.delete_log(plant_id, st.session_state[f'care_delete_choice_{plant_id}'])
+    except ValueError as error:
+        st.session_state[f'care_delete_error_{plant_id}'] = str(error)
+    except (OSError, sqlite3.Error):
+        st.session_state[f'care_delete_error_{plant_id}'] = '기록을 삭제하지 못했어요. 새로고침해 저장 상태를 확인해 주세요.'
+    else:
+        st.session_state['_notice'] = '선택한 기록을 삭제했어요.'
+        st.session_state[f'care_delete_confirm_{plant_id}'] = False
+        st.session_state.pop(f'care_delete_choice_{plant_id}', None)
+
+
 def render_records(store, plant, logs):
     """기록 작성과 저장된 관찰을 구분한다. 화면 탐색은 외부 요청이나 저장을 하지 않는다."""
     from . import ui
@@ -117,22 +134,13 @@ def render_records(store, plant, logs):
                     with st.form(f'delete_care_log_{plant_id}'):
                         log_id = st.selectbox('삭제할 기록', list(choices),
                             format_func=lambda value: f"{choices[value]['occurred_on']} · {CARE_TYPES[choices[value]['kind']]} · "
-                            f"{choices[value]['notes'][:35] or ('사진 있음' if choices[value]['photo_path'] else '메모 없음')}")
-                        confirmed = st.checkbox('이 기록과 연결된 자동 AI 분석을 삭제할게요')
-                        delete = st.form_submit_button('선택한 기록 삭제')
-                    if delete:
-                        if not confirmed:
-                            st.error('삭제할 기록과 연결된 분석을 확인해 주세요.')
-                        else:
-                            try:
-                                store.delete_log(plant_id, log_id)
-                            except ValueError as error:
-                                st.error(str(error))
-                            except (OSError, sqlite3.Error):
-                                st.error('기록을 삭제하지 못했어요. 새로고침해 저장 상태를 확인해 주세요.')
-                            else:
-                                st.session_state['_notice'] = '선택한 기록을 삭제했어요.'
-                                st.rerun()
+                            f"{choices[value]['notes'][:35] or ('사진 있음' if choices[value]['photo_path'] else '메모 없음')}",
+                            key=f'care_delete_choice_{plant_id}')
+                        st.checkbox('이 기록과 연결된 자동 AI 분석을 삭제할게요',
+                                    key=f'care_delete_confirm_{plant_id}')
+                        st.form_submit_button('선택한 기록 삭제', on_click=delete_selected_log, args=(store, plant_id))
+                    if error := st.session_state.pop(f'care_delete_error_{plant_id}', None):
+                        st.error(error)
 
 
 def care_form(store, plant_id):
