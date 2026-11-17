@@ -103,7 +103,7 @@ def detail_hero(store, plant):
             with st.expander("식물 메모"):
                 st.html(f'<div class="detail-notes">{escape(plant["notes"])}</div>')
 
-def timeline(store, logs, care_types, outcomes, limit=None, *, journal=False, card_footer=None):
+def timeline(store, logs, care_types, outcomes, limit=None, *, journal=False, card_header=None):
     if not logs:
         st.html(f'<div class="{"care-empty" if journal else "quiet-empty"}"><span>아직 첫 페이지가 비어 있어요.</span>'
                 '<p>물주기나 잎의 작은 변화부터 기록해 보세요.</p></div>')
@@ -117,9 +117,14 @@ def timeline(store, logs, care_types, outcomes, limit=None, *, journal=False, ca
             if journal:
                 outcome = '' if log['outcome'] == 'unrecorded' else (
                     f'<span class="care-outcome {escape(log["outcome"], quote=True)}">{escape(outcomes[log["outcome"]])}</span>')
-                st.html('<div class="care-entry-top">'
-                        f'<span class="care-entry-date">{escape(log["occurred_on"])}</span>'
-                        f'<span class="care-chip">{escape(care_types[log["kind"]])}</span>{outcome}</div>')
+                header, action = st.columns([5, 1], gap='small', vertical_alignment='center')
+                with header:
+                    st.html('<div class="care-entry-top">'
+                            f'<span class="care-entry-date">{escape(log["occurred_on"])}</span>'
+                            f'<span class="care-chip">{escape(care_types[log["kind"]])}</span>{outcome}</div>')
+                if card_header is not None:
+                    with action:
+                        card_header(log)
             else:
                 outcome = "" if log["outcome"] == "unrecorded" else f' · {outcomes[log["outcome"]]}'
                 st.html(f'<div class="timeline-top"><span class="care-chip">{escape(care_types[log["kind"]])}</span>'
@@ -144,5 +149,3 @@ def timeline(store, logs, care_types, outcomes, limit=None, *, journal=False, ca
                     st.caption(f"{label} · {log['suggestion_text']}")
             if log["photo_path"]:
                 display_photo(store, log['photo_path'], width=320)
-            if journal and card_footer is not None:
-                card_footer(log)

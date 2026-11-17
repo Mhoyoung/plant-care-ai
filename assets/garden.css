@@ -80,6 +80,8 @@
 .st-key-care_history [data-testid="stSelectbox"] { max-width:240px; }
 .care-month { font-size:14px; font-weight:600; color:#536f4b; margin:12px 0 0; }
 .st-key-care_history [class*="st-key-log_"] { background:#fff; border:1px solid #e2e8dc; border-radius:18px; padding:22px !important; }
+.st-key-care_history [class*="st-key-care_delete_open_"] button { min-height:38px; height:38px; padding:0 10px; border-radius:10px; background:#fff8f5; border:1px solid #ead6ce; color:#955c4e; font-size:16px; box-shadow:none; }
+.st-key-care_history [class*="st-key-care_delete_open_"] button:hover { background:#fbece6; border-color:#d8b5a8; color:#7d3d31; }
 .care-entry-top { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
 .care-entry-date { font-size:15px; font-weight:600; color:#304e36; }
 .care-outcome { display:inline-block; padding:4px 9px; border-radius:20px; background:#f0f2ed; color:#65735f; font-size:12px; }

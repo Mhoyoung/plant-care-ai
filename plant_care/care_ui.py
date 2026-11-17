@@ -83,11 +83,6 @@ def show_delete_confirmation(plant_id, log_id):
     st.session_state.pop(f'care_delete_error_{plant_id}', None)
 
 
-def cancel_delete_confirmation(plant_id):
-    st.session_state.pop(f'care_delete_pending_{plant_id}', None)
-    st.session_state.pop(f'care_delete_error_{plant_id}', None)
-
-
 def delete_selected_log(store, plant_id, log_id):
     """Delete only the record currently confirmed in its own card."""
     if st.session_state.get(f'care_delete_pending_{plant_id}') != log_id:
@@ -103,18 +98,27 @@ def delete_selected_log(store, plant_id, log_id):
         st.session_state.pop(f'care_delete_pending_{plant_id}', None)
 
 
-def record_delete_controls(store, plant_id, log):
+def record_delete_button(plant_id, log):
     log_id = log['id']
-    if st.session_state.get(f'care_delete_pending_{plant_id}') != log_id:
-        st.button('이 기록 삭제', key=f'care_delete_open_{plant_id}_{log_id}', type='tertiary',
-                  on_click=show_delete_confirmation, args=(plant_id, log_id))
-        return
-    st.warning(f"{log['occurred_on']} · {CARE_TYPES[log['kind']]} 기록을 삭제할까요? 사진과 이 기록에서 만든 자동 AI 분석도 함께 삭제돼요.")
+    st.button('🗑️', key=f'care_delete_open_{plant_id}_{log_id}', help='이 기록 삭제',
+              type='secondary', width='stretch',
+              on_click=show_delete_confirmation, args=(plant_id, log_id))
+
+
+@st.dialog('삭제하시겠습니까?', width='small', dismissible=False)
+def confirm_record_deletion(store, plant_id, log):
+    log_id = log['id']
+    st.write(f"{log['occurred_on']} · {CARE_TYPES[log['kind']]} 기록을 삭제합니다.")
+    st.caption('기록 사진과 이 기록에서 만든 자동 AI 분석도 함께 삭제돼요.')
     cancel, confirm = st.columns(2, gap='small')
-    cancel.button('취소', key=f'care_delete_cancel_{plant_id}_{log_id}', width='stretch',
-                  on_click=cancel_delete_confirmation, args=(plant_id,))
-    confirm.button('삭제 확정', key=f'care_delete_confirm_{plant_id}_{log_id}', type='primary', width='stretch',
-                   on_click=delete_selected_log, args=(store, plant_id, log_id))
+    if cancel.button('취소', key=f'care_delete_cancel_{plant_id}_{log_id}', width='stretch'):
+        st.session_state.pop(f'care_delete_pending_{plant_id}', None)
+        st.session_state.pop(f'care_delete_error_{plant_id}', None)
+        st.rerun()
+    if confirm.button('삭제', key=f'care_delete_confirm_{plant_id}_{log_id}', type='primary', width='stretch'):
+        delete_selected_log(store, plant_id, log_id)
+        if f'care_delete_pending_{plant_id}' not in st.session_state:
+            st.rerun()
     if error := st.session_state.pop(f'care_delete_error_{plant_id}', None):
         st.error(error)
 
@@ -151,7 +155,11 @@ def render_records(store, plant, logs):
                             '<p>전체 기록을 선택하면 다른 관리와 관찰을 볼 수 있어요.</p></div>')
             if filtered or not logs:
                 ui.timeline(store, filtered, CARE_TYPES, OUTCOMES, journal=True,
-                            card_footer=lambda log: record_delete_controls(store, plant_id, log))
+                            card_header=lambda log: record_delete_button(plant_id, log))
+            pending = st.session_state.get(f'care_delete_pending_{plant_id}')
+            selected_log = next((log for log in logs if log['id'] == pending), None)
+            if selected_log:
+                confirm_record_deletion(store, plant_id, selected_log)
 
 
 def care_form(store, plant_id):
